@@ -1,10 +1,6 @@
 
 import { GoogleGenAI, Modality } from "@google/genai";
-
-const getAIClient = () => {
-  const apiKey = process.env.API_KEY || '';
-  return new GoogleGenAI({ apiKey });
-};
+import { TrendingItem } from "../types.ts";
 
 export interface GlobalNewsResult {
   text: string;
@@ -13,10 +9,10 @@ export interface GlobalNewsResult {
 
 export const searchGlobalNews = async (query: string): Promise<GlobalNewsResult> => {
   try {
-    const ai = getAIClient();
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `Search for the latest, breaking news about: "${query}". Provide a concise journalistic summary of current events related to this topic.`,
+      contents: `Search for the latest news about: "${query}". Provide a concise summary.`,
       config: {
         tools: [{ googleSearch: {} }],
       },
@@ -39,43 +35,71 @@ export const searchGlobalNews = async (query: string): Promise<GlobalNewsResult>
   }
 };
 
-export const generateAIImage = async (prompt: string): Promise<string> => {
+export const fetchLiveTrendingTopics = async (): Promise<TrendingItem[]> => {
   try {
-    const ai = getAIClient();
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [
-          {
-            text: `Professional news photograph or realistic journalistic illustration of: ${prompt}. High quality, detailed, editorial style.`,
-          },
-        ],
-      },
+      model: "gemini-3-flash-preview",
+      contents: "What are the top 5 most trending news topics on Google News right now? List them as hashtags with a brief count of mention popularity (estimate). Format: #Tag: Count",
       config: {
-        imageConfig: {
-          aspectRatio: "16:9"
-        },
+        tools: [{ googleSearch: {} }],
       },
     });
 
-    for (const part of response.candidates[0].content.parts) {
+    const text = response.text || "";
+    // Simple parsing of the model output to extract tags
+    const lines = text.split('\n').filter(line => line.includes('#'));
+    
+    if (lines.length === 0) return [];
+
+    return lines.slice(0, 5).map((line, idx) => {
+      const parts = line.replace(/^[*\s-]+/, '').split(':');
+      const tag = parts[0]?.trim() || `#Trend${idx}`;
+      const countStr = parts[1]?.replace(/[^0-9]/g, '') || "1200";
+      return {
+        id: `live-${idx}`,
+        tag: tag.startsWith('#') ? tag : `#${tag}`,
+        postCount: parseInt(countStr)
+      };
+    });
+  } catch (error) {
+    console.error("Failed to fetch live trends:", error);
+    return [];
+  }
+};
+
+export const generateAIImage = async (prompt: string): Promise<string> => {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: {
+        parts: [{ text: `News photo: ${prompt}` }],
+      },
+      config: {
+        imageConfig: { aspectRatio: "16:9" },
+      },
+    });
+
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) {
         return `data:image/png;base64,${part.inlineData.data}`;
       }
     }
-    throw new Error("No image data returned from model");
+    throw new Error("No image data");
   } catch (error) {
-    console.error("Gemini Image Generation Error:", error);
+    console.error("Image Gen Error:", error);
     throw error;
   }
 };
 
 export const generateNewsAudio = async (title: string, content: string): Promise<string> => {
   try {
-    const ai = getAIClient();
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const fullText = `News Title: ${title}. Content: ${content}`;
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text: prompt }] }],
+      contents: [{ parts: [{ text: fullText }] }],
       config: {
         responseModalities: [Modality.AUDIO],
         speechConfig: {
@@ -87,8 +111,7 @@ export const generateNewsAudio = async (title: string, content: string): Promise
     });
 
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (!base64Audio) throw new Error("No audio data generated.");
-    
+    if (!base64Audio) throw new Error("Audio generation failed");
     return base64Audio;
   } catch (error) {
     console.error("Gemini TTS Error:", error);

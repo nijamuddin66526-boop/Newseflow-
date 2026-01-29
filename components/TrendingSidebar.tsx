@@ -2,15 +2,16 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { TrendingItem } from '../types.ts';
-import { TrendingUp, UserPlus, Search } from 'lucide-react';
+import { TrendingUp, Search, Globe, Loader2 } from 'lucide-react';
 import { Button } from './Button.tsx';
 
 interface TrendingSidebarProps {
   trending: TrendingItem[];
   onSearch: (q: string) => void;
+  isLoading?: boolean;
 }
 
-export const TrendingSidebar: React.FC<TrendingSidebarProps> = ({ trending, onSearch }) => {
+export const TrendingSidebar: React.FC<TrendingSidebarProps> = ({ trending, onSearch, isLoading = false }) => {
   return (
     <div className="w-80 hidden lg:block sticky top-[84px] h-fit space-y-6">
       {/* Search */}
@@ -26,21 +27,45 @@ export const TrendingSidebar: React.FC<TrendingSidebarProps> = ({ trending, onSe
 
       {/* Trending */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-4 border-b border-slate-100 flex items-center space-x-2">
-          <TrendingUp className="w-5 h-5 text-blue-600" />
-          <h2 className="font-bold text-slate-900">Trending Topics</h2>
-        </div>
-        <div className="divide-y divide-slate-100">
-          {trending.map(item => (
-            <div key={item.id} className="p-4 hover:bg-slate-50 cursor-pointer transition-colors group">
-              <p className="text-xs text-slate-400 font-medium">Trending Worldwide</p>
-              <p className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors mt-0.5">{item.tag}</p>
-              <p className="text-xs text-slate-500 mt-0.5">{item.postCount.toLocaleString()} posts</p>
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <TrendingUp className="w-5 h-5 text-blue-600" />
+            <h2 className="font-bold text-slate-900">Trending Now</h2>
+          </div>
+          {isLoading && <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />}
+          {!isLoading && (
+            <div className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter flex items-center">
+              <span className="w-1 h-1 bg-emerald-500 rounded-full mr-1 animate-pulse" />
+              Live
             </div>
-          ))}
+          )}
         </div>
-        <button className="w-full p-4 text-sm font-medium text-blue-600 hover:bg-blue-50 text-left transition-colors">
-          Show more
+        
+        <div className="divide-y divide-slate-100">
+          {isLoading ? (
+            <div className="p-8 text-center space-y-2">
+              <Loader2 className="w-6 h-6 text-slate-300 mx-auto animate-spin" />
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Scanning News Feeds...</p>
+            </div>
+          ) : (
+            trending.map(item => (
+              <div 
+                key={item.id} 
+                className="p-4 hover:bg-slate-50 cursor-pointer transition-colors group"
+                onClick={() => onSearch(item.tag.replace('#', ''))}
+              >
+                <div className="flex items-center space-x-1 mb-0.5">
+                  <Globe className="w-3 h-3 text-slate-300" />
+                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Global Trend</p>
+                </div>
+                <p className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors">{item.tag}</p>
+                <p className="text-[10px] text-slate-500 font-bold mt-0.5">{item.postCount.toLocaleString()}+ reports found</p>
+              </div>
+            ))
+          )}
+        </div>
+        <button className="w-full p-4 text-xs font-black text-blue-600 hover:bg-blue-50 text-left transition-colors uppercase tracking-widest">
+          View All Intelligence
         </button>
       </div>
 

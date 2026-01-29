@@ -7,20 +7,12 @@ import {
   Share2, 
   MoreHorizontal, 
   Clock, 
-  Play,
   Pause,
-  Volume2,
-  VolumeX,
+  Speaker,
   Eye,
   Bookmark,
   X,
-  ChevronLeft,
-  ChevronRight,
-  MapPin,
-  ExternalLink,
   Loader2,
-  Speaker,
-  Zap,
   Check
 } from 'lucide-react';
 import { Button } from './Button.tsx';
@@ -37,7 +29,6 @@ interface PostCardProps {
   onUpdateLocation: (postId: string, location: any) => void;
 }
 
-// Audio helper functions for PCM data
 function decodeBase64(base64: string) {
   const binaryString = atob(base64);
   const len = binaryString.length;
@@ -54,7 +45,8 @@ async function decodeAudioData(
   sampleRate: number,
   numChannels: number,
 ): Promise<AudioBuffer> {
-  const dataInt16 = new Int16Array(data.buffer);
+  // Use proper byteOffset and byteLength for Int16Array
+  const dataInt16 = new Int16Array(data.buffer, data.byteOffset, data.byteLength / 2);
   const frameCount = dataInt16.length / numChannels;
   const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
 
@@ -74,13 +66,10 @@ export const PostCard: React.FC<PostCardProps> = ({
   onShare, 
   onSave, 
   onComment,
-  onUpdateLocation
 }) => {
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  // Audio/TTS States
   const [isNarrating, setIsNarrating] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -104,6 +93,9 @@ export const PostCard: React.FC<PostCardProps> = ({
     }
 
     if (audioBufferRef.current && audioContextRef.current) {
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
       const source = audioContextRef.current.createBufferSource();
       source.buffer = audioBufferRef.current;
       source.connect(audioContextRef.current.destination);
@@ -179,17 +171,12 @@ export const PostCard: React.FC<PostCardProps> = ({
       {/* Content Section */}
       <div className="px-4 pb-4">
         <h2 className="text-xl font-black text-slate-900 mb-2 leading-tight tracking-tight">{post.title}</h2>
-        <p className="text-sm text-slate-600 font-medium leading-relaxed line-clamp-3 mb-4">{post.content}</p>
+        <p className="text-sm text-slate-600 font-medium leading-relaxed mb-4">{post.content}</p>
         
         {/* Media */}
         {post.type === 'PHOTO' && post.mediaUrl && (
           <div className="relative aspect-video rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 mb-4 group">
             <img src={post.mediaUrl} className="w-full h-full object-cover" alt="Visual Report" />
-            <div className="absolute top-4 left-4">
-              <div className="bg-black/20 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-black text-white uppercase tracking-widest border border-white/20">
-                Photo Dispatch
-              </div>
-            </div>
           </div>
         )}
 
@@ -228,7 +215,7 @@ export const PostCard: React.FC<PostCardProps> = ({
         </div>
       </div>
 
-      {/* Stats & Actions */}
+      {/* Actions */}
       <div className="px-4 py-3 border-t border-slate-50 flex items-center justify-between bg-slate-50/30">
         <div className="flex items-center space-x-4">
           <button onClick={() => onLike(post.id)} className="flex items-center space-x-1.5 group">
@@ -238,7 +225,7 @@ export const PostCard: React.FC<PostCardProps> = ({
             <span className={`text-xs font-black ${isLiked ? 'text-red-500' : 'text-slate-500'}`}>{post.likes.length}</span>
           </button>
           <button onClick={() => setShowComments(!showComments)} className="flex items-center space-x-1.5 group">
-            <div className="p-2 rounded-full text-slate-400 group-hover:bg-slate-100 transition-colors">
+            <div className={`p-2 rounded-full transition-colors ${showComments ? 'text-blue-600 bg-blue-50' : 'text-slate-400 group-hover:bg-slate-100'}`}>
               <MessageCircle className="w-5 h-5" />
             </div>
             <span className="text-xs font-black text-slate-500">{post.comments.length}</span>
@@ -253,7 +240,7 @@ export const PostCard: React.FC<PostCardProps> = ({
         <div className="flex items-center space-x-2">
           <div className="flex items-center text-slate-300 mr-2">
             <Eye className="w-4 h-4 mr-1" />
-            <span className="text-[10px] font-black uppercase tracking-widest">{(post.views / 1000).toFixed(1)}k Views</span>
+            <span className="text-[10px] font-black uppercase tracking-widest">{(post.views / 1000).toFixed(1)}k</span>
           </div>
           <button onClick={() => onSave(post.id)} className={`p-2 rounded-full transition-colors ${isSaved ? 'text-blue-600 bg-blue-50' : 'text-slate-400 hover:bg-slate-100'}`}>
             <Bookmark className={`w-5 h-5 ${isSaved ? 'fill-current' : ''}`} />
@@ -261,9 +248,9 @@ export const PostCard: React.FC<PostCardProps> = ({
         </div>
       </div>
 
-      {/* Comments Drawer */}
+      {/* Comments */}
       {showComments && (
-        <div className="border-t border-slate-100 p-4 bg-slate-50/50 animate-in slide-in-from-top-2 duration-300">
+        <div className="border-t border-slate-100 p-4 bg-slate-50/50">
           <div className="space-y-4 mb-4">
             {post.comments.map(comment => (
               <div key={comment.id} className="flex space-x-3">
@@ -279,9 +266,6 @@ export const PostCard: React.FC<PostCardProps> = ({
                 </div>
               </div>
             ))}
-            {post.comments.length === 0 && (
-              <p className="text-center py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">No investigative discourse yet.</p>
-            )}
           </div>
           <div className="flex items-center space-x-2">
             <input 
@@ -289,7 +273,7 @@ export const PostCard: React.FC<PostCardProps> = ({
               placeholder="Add your verified analysis..." 
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
-              className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+              className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-medium outline-none focus:ring-2 focus:ring-blue-500"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && commentText.trim()) {
                   onComment(post.id, commentText);

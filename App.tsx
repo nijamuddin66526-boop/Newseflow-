@@ -156,9 +156,9 @@ const HomePage: React.FC<{
             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
               <Search className="w-8 h-8 text-slate-300" />
             </div>
-            <h3 className="text-xl font-black text-slate-900 mb-2">No Reports Found</h3>
-            <p className="text-slate-500 text-sm mb-8 font-medium max-w-xs mx-auto">The digital intelligence network is currently clear for this category. Try searching globally.</p>
-            <Button size="lg" className="rounded-2xl px-8" onClick={onTriggerGlobalSearch}>Search Global Intelligence</Button>
+            <h3 className="text-xl font-black text-slate-900 mb-2">No Local Intel Found</h3>
+            <p className="text-slate-500 text-sm mb-8 font-medium max-w-xs mx-auto">Your local feed has no reports matching "{searchQuery}". Access the global AI news network instead.</p>
+            <Button size="lg" className="rounded-2xl px-8" onClick={onTriggerGlobalSearch}>Execute Global Search</Button>
           </div>
         )}
       </div>
@@ -348,6 +348,10 @@ const AppContent: React.FC = () => {
     try {
       const results = await searchGlobalNews(searchQuery);
       setGlobalSearchResults(results);
+      // If we are on a page other than Home, navigate back to show results
+      if (location.pathname !== '/') {
+        navigate('/');
+      }
     } catch (err) { setGlobalSearchError("Failed to fetch news."); }
     finally { setIsSearchingGlobal(false); }
   };
@@ -524,6 +528,7 @@ const AppContent: React.FC = () => {
         user={currentUser} 
         onLogout={handleLogout} 
         onSearch={setSearchQuery} 
+        onSearchSubmit={handleGlobalSearch}
         currentLanguage={targetLanguage}
         onLanguageChange={setTargetLanguage}
         autoTranslate={autoTranslate}

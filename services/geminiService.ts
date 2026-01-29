@@ -1,6 +1,10 @@
+
 import { GoogleGenAI, Modality } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const getAIClient = () => {
+  const apiKey = process.env.API_KEY || '';
+  return new GoogleGenAI({ apiKey });
+};
 
 export interface GlobalNewsResult {
   text: string;
@@ -9,6 +13,7 @@ export interface GlobalNewsResult {
 
 export const searchGlobalNews = async (query: string): Promise<GlobalNewsResult> => {
   try {
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Search for the latest, breaking news about: "${query}". Provide a concise journalistic summary of current events related to this topic.`,
@@ -36,6 +41,7 @@ export const searchGlobalNews = async (query: string): Promise<GlobalNewsResult>
 
 export const generateAIImage = async (prompt: string): Promise<string> => {
   try {
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
@@ -66,10 +72,7 @@ export const generateAIImage = async (prompt: string): Promise<string> => {
 
 export const generateNewsAudio = async (title: string, content: string): Promise<string> => {
   try {
-    const prompt = `Act as a professional news anchor. Summarize and read the following dispatch in a clear, engaging tone:
-    Headline: ${title}
-    Report: ${content}`;
-
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
       contents: [{ parts: [{ text: prompt }] }],

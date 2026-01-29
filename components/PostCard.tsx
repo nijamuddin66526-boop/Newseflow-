@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Post, Comment } from '../types.ts';
 import { 
@@ -33,6 +34,7 @@ interface PostCardProps {
   onShare: (postId: string) => void;
   onSave: (postId: string) => void;
   onComment: (postId: string, text: string) => void;
+  onUpdateLocation: (postId: string, location: any) => void;
 }
 
 // Audio helper functions for PCM data
@@ -71,7 +73,8 @@ export const PostCard: React.FC<PostCardProps> = ({
   onLike, 
   onShare, 
   onSave, 
-  onComment
+  onComment,
+  onUpdateLocation
 }) => {
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');

@@ -1,15 +1,17 @@
 
 import { GoogleGenAI, Modality, Type } from "@google/genai";
-import { TrendingItem } from "../types.ts";
+import { TrendingItem, Post } from "../types.ts";
 
 export interface GlobalNewsResult {
   text: string;
   sources: { title: string; uri: string }[];
 }
 
+const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+
 export const searchGlobalNews = async (query: string): Promise<GlobalNewsResult> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Search for the latest news about: "${query}". Provide a concise summary.`,
@@ -37,7 +39,7 @@ export const searchGlobalNews = async (query: string): Promise<GlobalNewsResult>
 
 export const translateDispatch = async (title: string, content: string, targetLang: string): Promise<{ title: string; content: string }> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Translate the following news dispatch into ${targetLang}. 
@@ -66,10 +68,10 @@ export const translateDispatch = async (title: string, content: string, targetLa
 
 export const fetchLiveTrendingTopics = async (): Promise<TrendingItem[]> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: "What are the top 5 most trending news topics on Google News right now? List them as hashtags with a brief count of mention popularity (estimate). Format: #Tag: Count",
+      contents: "Search Google News for the current top 5 trending topics worldwide. Provide them as a list of hashtags with estimated mention counts. Format each line exactly as: #Hashtag: Number",
       config: {
         tools: [{ googleSearch: {} }],
       },
@@ -83,7 +85,7 @@ export const fetchLiveTrendingTopics = async (): Promise<TrendingItem[]> => {
     return lines.slice(0, 5).map((line, idx) => {
       const parts = line.replace(/^[*\s-]+/, '').split(':');
       const tag = parts[0]?.trim() || `#Trend${idx}`;
-      const countStr = parts[1]?.replace(/[^0-9]/g, '') || "1200";
+      const countStr = parts[1]?.replace(/[^0-9]/g, '') || "1500";
       return {
         id: `live-${idx}`,
         tag: tag.startsWith('#') ? tag : `#${tag}`,
@@ -96,9 +98,61 @@ export const fetchLiveTrendingTopics = async (): Promise<TrendingItem[]> => {
   }
 };
 
+export const fetchGlobalTrendingStories = async (): Promise<Post[]> => {
+  try {
+    const ai = getAI();
+    const response = await ai.models.generateContent({
+      model: "gemini-3-pro-preview",
+      contents: "Get the 5 most significant breaking news stories from Google News right now. For each story, provide: 1. Title, 2. A 3-sentence summary, 3. Category, 4. A representative image keyword. Format as a JSON array of objects.",
+      config: {
+        tools: [{ googleSearch: {} }],
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              content: { type: Type.STRING },
+              category: { type: Type.STRING },
+              imageKeyword: { type: Type.STRING }
+            },
+            required: ["title", "content", "category", "imageKeyword"]
+          }
+        }
+      },
+    });
+
+    const stories = JSON.parse(response.text || "[]");
+    
+    return stories.map((s: any, idx: number) => ({
+      id: `global-trend-${idx}`,
+      userId: 'system-ai',
+      authorName: 'Global Intel Node',
+      authorUsername: 'global_feed',
+      authorAvatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=global',
+      type: 'PHOTO',
+      category: s.category || 'World',
+      title: s.title,
+      content: s.content,
+      mediaUrl: `https://source.unsplash.com/featured/?${encodeURIComponent(s.imageKeyword || 'news')}`,
+      likes: [],
+      savedBy: [],
+      comments: [],
+      views: Math.floor(Math.random() * 50000) + 10000,
+      shares: Math.floor(Math.random() * 1000),
+      createdAt: new Date().toISOString(),
+      location: { name: 'Global Network' }
+    }));
+  } catch (error) {
+    console.error("Failed to fetch global stories:", error);
+    return [];
+  }
+};
+
 export const generateAIImage = async (prompt: string): Promise<string> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
@@ -123,7 +177,7 @@ export const generateAIImage = async (prompt: string): Promise<string> => {
 
 export const generateNewsAudio = async (title: string, content: string): Promise<string> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = getAI();
     const fullText = `News Title: ${title}. Content: ${content}`;
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",

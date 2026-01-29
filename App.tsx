@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
 import { User, Post, TrendingItem, PostType } from './types.ts';
@@ -8,7 +9,7 @@ import { CreatePost } from './components/CreatePost.tsx';
 import { TrendingSidebar } from './components/TrendingSidebar.tsx';
 import { GlobalNewsSearch } from './components/GlobalNewsSearch.tsx';
 import { Guidelines } from './components/Guidelines.tsx';
-import { searchGlobalNews, GlobalNewsResult, fetchLiveTrendingTopics } from './services/geminiService.ts';
+import { searchGlobalNews, GlobalNewsResult, fetchLiveTrendingTopics, fetchGlobalTrendingStories } from './services/geminiService.ts';
 import { 
   Home, 
   Search, 
@@ -19,7 +20,10 @@ import {
   Mail, 
   Fingerprint, 
   Globe,
-  Compass
+  Compass,
+  TrendingUp,
+  Plus,
+  Zap
 } from 'lucide-react';
 import { Button } from './components/Button.tsx';
 
@@ -42,6 +46,9 @@ const HomePage: React.FC<{
   onTriggerGlobalSearch: () => void;
   targetLanguage: string;
   autoTranslate: boolean;
+  showCreateModal: boolean;
+  setShowCreateModal: (val: boolean) => void;
+  isTrendingNewsLoading: boolean;
 }> = ({ 
   posts, 
   allPosts, 
@@ -60,24 +67,41 @@ const HomePage: React.FC<{
   searchQuery,
   onTriggerGlobalSearch,
   targetLanguage,
-  autoTranslate
+  autoTranslate,
+  showCreateModal,
+  setShowCreateModal,
+  isTrendingNewsLoading
 }) => {
   return (
     <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <CreatePost currentUser={currentUser} onPostCreated={onPostCreated} />
+      {showCreateModal && (
+        <CreatePost 
+          currentUser={currentUser} 
+          onPostCreated={onPostCreated} 
+          onClose={() => setShowCreateModal(false)}
+        />
+      )}
       
       <div className="flex items-center space-x-2 overflow-x-auto pb-4 mb-2 no-scrollbar">
         <button 
           onClick={() => setActiveCategory(null)}
-          className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all border ${!activeCategory ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+          className={`px-4 py-2 rounded-full text-xs font-black whitespace-nowrap transition-all border flex items-center space-x-2 ${!activeCategory ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-100' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
         >
-          All News
+          <Compass className="w-3.5 h-3.5" />
+          <span>All Reports</span>
+        </button>
+        <button 
+          onClick={() => setActiveCategory('TRENDING')}
+          className={`px-4 py-2 rounded-full text-xs font-black whitespace-nowrap transition-all border flex items-center space-x-2 ${activeCategory === 'TRENDING' ? 'bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-100' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+        >
+          <TrendingUp className="w-3.5 h-3.5" />
+          <span>Trending Hub</span>
         </button>
         {NEWS_CATEGORIES.map(cat => (
           <button 
             key={cat}
             onClick={() => setActiveCategory(cat)}
-            className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all border ${activeCategory === cat ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+            className={`px-4 py-2 rounded-full text-xs font-black whitespace-nowrap transition-all border ${activeCategory === cat ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-100' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
           >
             {cat}
           </button>
@@ -91,28 +115,50 @@ const HomePage: React.FC<{
         query={searchQuery}
       />
 
+      {activeCategory === 'TRENDING' && (
+        <div className="mb-6 p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Zap className="w-5 h-5 text-amber-500 fill-current" />
+            <div>
+              <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest leading-tight">Live Intelligence</p>
+              <h3 className="text-sm font-black text-amber-900">Synchronized with Google News Trending Feed</h3>
+            </div>
+          </div>
+          {isTrendingNewsLoading && <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />}
+        </div>
+      )}
+
       <div className="space-y-4">
-        {posts.map(post => (
-          <PostCard 
-            key={post.id} 
-            post={post} 
-            allPosts={allPosts}
-            currentUserId={currentUser.id} 
-            onLike={onLike} 
-            onShare={onShare} 
-            onSave={onSave}
-            onComment={onComment} 
-            onUpdateLocation={onUpdateLocation}
-            targetLanguage={targetLanguage}
-            autoTranslate={autoTranslate}
-          />
-        ))}
-        {posts.length === 0 && (
-          <div className="text-center py-16 bg-white rounded-3xl border border-dashed p-8">
-            <Search className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-lg font-bold text-slate-900">No local reports</h3>
-            <p className="text-slate-500 text-sm mb-6">Try searching global news or change filters.</p>
-            <Button onClick={onTriggerGlobalSearch}>Search Globally</Button>
+        {isTrendingNewsLoading ? (
+          <div className="py-20 text-center">
+            <Loader2 className="w-10 h-10 text-amber-300 animate-spin mx-auto mb-4" />
+            <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.2em]">Querying Global Trending Matrix...</p>
+          </div>
+        ) : (
+          posts.map(post => (
+            <PostCard 
+              key={post.id} 
+              post={post} 
+              allPosts={allPosts}
+              currentUserId={currentUser.id} 
+              onLike={onLike} 
+              onShare={onShare} 
+              onSave={onSave}
+              onComment={onComment} 
+              onUpdateLocation={onUpdateLocation}
+              targetLanguage={targetLanguage}
+              autoTranslate={autoTranslate}
+            />
+          ))
+        )}
+        {!isTrendingNewsLoading && posts.length === 0 && (
+          <div className="text-center py-24 bg-white rounded-[2rem] border border-dashed border-slate-200 p-8">
+            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Search className="w-8 h-8 text-slate-300" />
+            </div>
+            <h3 className="text-xl font-black text-slate-900 mb-2">No Reports Found</h3>
+            <p className="text-slate-500 text-sm mb-8 font-medium max-w-xs mx-auto">The digital intelligence network is currently clear for this category. Try searching globally.</p>
+            <Button size="lg" className="rounded-2xl px-8" onClick={onTriggerGlobalSearch}>Search Global Intelligence</Button>
           </div>
         )}
       </div>
@@ -138,42 +184,54 @@ const ProfilePage: React.FC<{
 
   return (
     <div className="animate-in slide-in-from-right-4 duration-500">
-      <div className="bg-white rounded-3xl shadow-sm border p-8 mb-6">
-        <div className="flex items-center space-x-6 mb-8">
-          <img src={user.avatar} className="w-24 h-24 rounded-3xl object-cover shadow-lg border-4 border-white ring-1 ring-slate-100" alt={user.name} />
-          <div>
-            <h1 className="text-3xl font-black text-slate-900 leading-tight">{user.name}</h1>
-            <p className="text-slate-500 font-bold">@{user.username}</p>
-            <div className="flex items-center space-x-2 mt-2">
-              {user.phone && <div className="flex items-center text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-md"><Smartphone className="w-2.5 h-2.5 mr-1" /> Verified Phone</div>}
-              {user.email && <div className="flex items-center text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-md"><Mail className="w-2.5 h-2.5 mr-1" /> Google Verified</div>}
+      <div className="bg-white rounded-[2.5rem] shadow-sm border p-8 mb-8 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-600 to-purple-600" />
+        <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-8">
+          <img src={user.avatar} className="w-28 h-28 rounded-[2rem] object-cover shadow-2xl border-4 border-white ring-1 ring-slate-100" alt={user.name} />
+          <div className="text-center sm:text-left flex-1">
+            <h1 className="text-4xl font-black text-slate-900 leading-tight tracking-tighter">{user.name}</h1>
+            <p className="text-blue-600 font-black uppercase tracking-widest text-[10px] mt-1">Digital Correspondent @{user.username}</p>
+            
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-4">
+              {user.phone && <div className="flex items-center text-[9px] font-black text-slate-500 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full"><Smartphone className="w-2.5 h-2.5 mr-1.5" /> Verified Field Node</div>}
+              {user.email && <div className="flex items-center text-[9px] font-black text-slate-500 uppercase tracking-widest bg-slate-100 px-3 py-1 rounded-full"><Mail className="w-2.5 h-2.5 mr-1.5" /> Identity Verified</div>}
             </div>
+
+            <div className="mt-6 p-5 bg-slate-50 rounded-2xl border border-slate-100 relative group">
+              <div className="absolute -top-3 left-6 bg-white border border-slate-100 px-3 py-0.5 rounded-full text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Bio Protocol</div>
+              {isEditing ? (
+                <div className="space-y-4">
+                  <textarea 
+                    className="w-full p-4 border border-slate-200 rounded-xl bg-white shadow-inner outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                    value={tempBio}
+                    onChange={(e) => setTempBio(e.target.value)}
+                  />
+                  <div className="flex space-x-2">
+                    <Button size="sm" onClick={() => { onUpdateBio(tempBio); setIsEditing(false); }} className="rounded-xl font-black">Apply Changes</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)} className="rounded-xl font-black">Cancel</Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-slate-700 font-medium italic leading-relaxed text-sm">"{user.bio}"</p>
+              )}
+            </div>
+            
+            {!isEditing && (
+              <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="mt-4 rounded-xl font-black text-[10px] uppercase tracking-widest h-9">
+                Update Reporter Profile
+              </Button>
+            )}
           </div>
         </div>
-        <div className="bg-slate-50 p-6 rounded-2xl border mb-6 relative">
-          <div className="absolute -top-3 left-6 bg-white px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">About Reporter</div>
-          {isEditing ? (
-            <div className="space-y-4">
-              <textarea 
-                className="w-full p-4 border rounded-xl bg-white shadow-inner outline-none focus:ring-2 focus:ring-blue-500"
-                value={tempBio}
-                onChange={(e) => setTempBio(e.target.value)}
-              />
-              <Button onClick={() => { onUpdateBio(tempBio); setIsEditing(false); }} className="rounded-xl">Save Mission</Button>
-            </div>
-          ) : (
-            <p className="italic text-slate-700 font-medium">"{user.bio}"</p>
-          )}
-        </div>
-        <Button variant="outline" size="sm" onClick={() => setIsEditing(!isEditing)} className="rounded-xl font-black">
-          {isEditing ? 'Cancel Editing' : 'Update Credentials'}
-        </Button>
       </div>
 
-      <h2 className="text-xl font-black mb-4 px-2">Dispatched Reports</h2>
+      <div className="flex items-center justify-between mb-6 px-4">
+        <h2 className="text-2xl font-black text-slate-900 tracking-tight italic">Dispatched Intel</h2>
+        <span className="bg-blue-600 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">{userPosts.length} Reports</span>
+      </div>
+
       <div className="space-y-4">
         {userPosts.map(post => (
-          /* Fixed: Use current props onLike, onShare, onSave, onComment instead of non-existent handle functions */
           <PostCard key={post.id} post={post} allPosts={posts} currentUserId={user.id} onLike={onLike} onShare={onShare} onSave={onSave} onComment={onComment} onUpdateLocation={() => {}} targetLanguage={targetLanguage} autoTranslate={autoTranslate} />
         ))}
       </div>
@@ -195,6 +253,9 @@ const AppContent: React.FC = () => {
   
   const [trending, setTrending] = useState<TrendingItem[]>(INITIAL_TRENDING);
   const [isTrendingLoading, setIsTrendingLoading] = useState(false);
+  const [trendingNews, setTrendingNews] = useState<Post[]>([]);
+  const [isTrendingNewsLoading, setIsTrendingNewsLoading] = useState(false);
+  
   const [loginMethod, setLoginMethod] = useState<'MOBILE' | 'GOOGLE'>('MOBILE');
   const [mobileNumber, setMobileNumber] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -203,6 +264,7 @@ const AppContent: React.FC = () => {
   const [globalSearchResults, setGlobalSearchResults] = useState<GlobalNewsResult | null>(null);
   const [isSearchingGlobal, setIsSearchingGlobal] = useState(false);
   const [globalSearchError, setGlobalSearchError] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Global Language State
   const [targetLanguage, setTargetLanguage] = useState(() => {
@@ -229,25 +291,55 @@ const AppContent: React.FC = () => {
   }, [autoTranslate]);
 
   useEffect(() => {
-    const getTrending = async () => {
+    const getTrendingData = async () => {
       setIsTrendingLoading(true);
       try {
-        const liveTrends = await fetchLiveTrendingTopics();
+        const [liveTrends, liveNews] = await Promise.all([
+          fetchLiveTrendingTopics(),
+          fetchGlobalTrendingStories()
+        ]);
         if (liveTrends.length > 0) setTrending(liveTrends);
+        if (liveNews.length > 0) setTrendingNews(liveNews);
       } catch (err) { console.error(err); }
       setIsTrendingLoading(false);
     };
-    getTrending();
+    getTrendingData();
   }, []);
 
+  // Effect to re-fetch trending news when activeCategory is 'TRENDING' to ensure fresh data
+  useEffect(() => {
+    if (activeCategory === 'TRENDING') {
+      const refreshTrendingNews = async () => {
+        setIsTrendingNewsLoading(true);
+        try {
+          const liveNews = await fetchGlobalTrendingStories();
+          if (liveNews.length > 0) setTrendingNews(liveNews);
+        } catch (err) { console.error(err); }
+        finally { setIsTrendingNewsLoading(false); }
+      };
+      refreshTrendingNews();
+    }
+  }, [activeCategory]);
+
   const filteredPosts = useMemo(() => {
-    return posts.filter(post => {
+    if (activeCategory === 'TRENDING') {
+      return trendingNews;
+    }
+
+    let result = [...posts];
+    if (activeCategory) {
+      result = result.filter(post => post.category === activeCategory);
+    }
+
+    if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      const matchesSearch = post.title.toLowerCase().includes(q) || post.content.toLowerCase().includes(q);
-      const matchesCategory = !activeCategory || post.category === activeCategory;
-      return matchesSearch && matchesCategory;
-    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [posts, searchQuery, activeCategory]);
+      result = result.filter(post => post.title.toLowerCase().includes(q) || post.content.toLowerCase().includes(q));
+    }
+
+    result = result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return result;
+  }, [posts, trendingNews, searchQuery, activeCategory]);
 
   const handleGlobalSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -281,6 +373,7 @@ const AppContent: React.FC = () => {
       createdAt: new Date().toISOString()
     };
     setPosts([newPost, ...posts]);
+    setShowCreateModal(false);
   };
 
   const handleLike = (id: string) => {
@@ -319,7 +412,7 @@ const AppContent: React.FC = () => {
         id: 'u' + Date.now(), 
         name: 'Correspondent', 
         username: 'user_' + mobileNumber.slice(-4), 
-        avatar: `https://picsum.photos/seed/${mobileNumber}/200`, 
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${mobileNumber}`, 
         bio: 'Verified via Mobile Intelligence Node',
         phone: mobileNumber
       });
@@ -334,7 +427,7 @@ const AppContent: React.FC = () => {
         id: 'u' + Date.now(), 
         name: 'Verified Citizen', 
         username: 'citizen_gmail', 
-        avatar: `https://picsum.photos/seed/google/200`, 
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=google`, 
         bio: 'Authenticated via Google Identity Services',
         email: 'user@gmail.com'
       });
@@ -439,19 +532,22 @@ const AppContent: React.FC = () => {
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex flex-col lg:flex-row gap-10">
           <div className="hidden lg:block w-64 space-y-2 sticky top-24 h-fit">
-            <Link to="/" className={`flex items-center space-x-3 p-3 rounded-2xl transition-all ${location.pathname === '/' ? 'bg-blue-600 text-white shadow-xl shadow-blue-100' : 'hover:bg-white border border-transparent hover:border-slate-200'}`}>
-              <Home className="w-5 h-5" /><span className="font-bold">Home</span>
+            <Link to="/" className={`flex items-center space-x-3 p-4 rounded-[1.5rem] transition-all ${location.pathname === '/' && !activeCategory ? 'bg-blue-600 text-white shadow-xl shadow-blue-100 scale-[1.05]' : 'hover:bg-white border border-transparent hover:border-slate-200'}`}>
+              <Home className="w-5 h-5" /><span className="font-black">Network Feed</span>
             </Link>
-            <Link to="/guidelines" className={`flex items-center space-x-3 p-3 rounded-2xl transition-all ${location.pathname === '/guidelines' ? 'bg-blue-600 text-white shadow-xl shadow-blue-100' : 'hover:bg-white border border-transparent hover:border-slate-200'}`}>
-              <Shield className="w-5 h-5" /><span className="font-bold">Guidelines</span>
+            <button onClick={() => setActiveCategory('TRENDING')} className={`w-full flex items-center space-x-3 p-4 rounded-[1.5rem] transition-all ${activeCategory === 'TRENDING' ? 'bg-amber-500 text-white shadow-xl shadow-amber-100 scale-[1.05]' : 'hover:bg-white border border-transparent hover:border-slate-200'}`}>
+              <TrendingUp className="w-5 h-5" /><span className="font-black">Trending Hub</span>
+            </button>
+            <Link to="/guidelines" className={`flex items-center space-x-3 p-4 rounded-[1.5rem] transition-all ${location.pathname === '/guidelines' ? 'bg-blue-600 text-white shadow-xl shadow-blue-100 scale-[1.05]' : 'hover:bg-white border border-transparent hover:border-slate-200'}`}>
+              <Shield className="w-5 h-5" /><span className="font-black">Guidelines</span>
             </Link>
-            <Link to="/profile" className={`flex items-center space-x-3 p-3 rounded-2xl transition-all ${location.pathname === '/profile' ? 'bg-blue-600 text-white shadow-xl shadow-blue-100' : 'hover:bg-white border border-transparent hover:border-slate-200'}`}>
-              <UserIcon className="w-5 h-5" /><span className="font-bold">Profile</span>
+            <Link to="/profile" className={`flex items-center space-x-3 p-4 rounded-[1.5rem] transition-all ${location.pathname === '/profile' ? 'bg-blue-600 text-white shadow-xl shadow-blue-100 scale-[1.05]' : 'hover:bg-white border border-transparent hover:border-slate-200'}`}>
+              <UserIcon className="w-5 h-5" /><span className="font-black">Profile Node</span>
             </Link>
           </div>
           <div className="flex-1 max-w-3xl">
             <Routes>
-              <Route path="/" element={<HomePage posts={filteredPosts} allPosts={posts} currentUser={currentUser} onLike={handleLike} onShare={handleShare} onSave={handleSave} onComment={handleComment} onPostCreated={handleCreatePost} onUpdateLocation={() => {}} activeCategory={activeCategory} setActiveCategory={setActiveCategory} globalSearchResults={globalSearchResults} isSearchingGlobal={isSearchingGlobal} globalSearchError={globalSearchError} searchQuery={searchQuery} onTriggerGlobalSearch={handleGlobalSearch} targetLanguage={targetLanguage} autoTranslate={autoTranslate} />} />
+              <Route path="/" element={<HomePage posts={filteredPosts} allPosts={posts} currentUser={currentUser} onLike={handleLike} onShare={handleShare} onSave={handleSave} onComment={handleComment} onPostCreated={handleCreatePost} onUpdateLocation={() => {}} activeCategory={activeCategory} setActiveCategory={setActiveCategory} globalSearchResults={globalSearchResults} isSearchingGlobal={isSearchingGlobal} globalSearchError={globalSearchError} searchQuery={searchQuery} onTriggerGlobalSearch={handleGlobalSearch} targetLanguage={targetLanguage} autoTranslate={autoTranslate} showCreateModal={showCreateModal} setShowCreateModal={setShowCreateModal} isTrendingNewsLoading={isTrendingNewsLoading} />} />
               <Route path="/profile" element={<ProfilePage user={currentUser} posts={posts} onLike={handleLike} onShare={handleShare} onSave={handleSave} onComment={handleComment} onUpdateLocation={() => {}} onUpdateBio={handleUpdateBio} targetLanguage={targetLanguage} autoTranslate={autoTranslate} />} />
               <Route path="/guidelines" element={<Guidelines />} />
             </Routes>
@@ -459,6 +555,16 @@ const AppContent: React.FC = () => {
           <TrendingSidebar trending={trending} onSearch={setSearchQuery} isLoading={isTrendingLoading} />
         </div>
       </main>
+
+      <button 
+        onClick={() => setShowCreateModal(true)}
+        className="fixed bottom-8 right-8 w-16 h-16 bg-blue-600 text-white rounded-[1.5rem] shadow-2xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 z-50 group hover:rotate-6"
+      >
+        <Plus className="w-8 h-8 group-hover:rotate-90 transition-transform duration-300" />
+        <div className="absolute right-20 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-xl border border-white/10">
+          File New Dispatch
+        </div>
+      </button>
     </div>
   );
 };

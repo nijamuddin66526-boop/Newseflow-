@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { ShieldCheck, Scale, Mic2, HeartHandshake, EyeOff, AlertTriangle, CheckCircle2, BookOpen } from 'lucide-react';
-import { Button } from './Button';
+import { Button } from './Button.tsx';
 
 export const Guidelines: React.FC = () => {
   const standards = [

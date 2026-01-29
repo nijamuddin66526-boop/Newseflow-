@@ -12,6 +12,18 @@ export const NEWS_CATEGORIES = [
   'Science'
 ];
 
+export const SUPPORTED_LANGUAGES = [
+  { code: 'en', name: 'English', native: 'English' },
+  { code: 'bn', name: 'Bengali', native: 'বাংলা' },
+  { code: 'es', name: 'Spanish', native: 'Español' },
+  { code: 'fr', name: 'French', native: 'Français' },
+  { code: 'ar', name: 'Arabic', native: 'العربية' },
+  { code: 'de', name: 'German', native: 'Deutsch' },
+  { code: 'zh', name: 'Chinese', native: '中文' },
+  { code: 'hi', name: 'Hindi', native: 'हिन्दी' },
+  { code: 'ja', name: 'Japanese', native: '日本語' }
+];
+
 export const INITIAL_TRENDING: TrendingItem[] = [
   { id: '1', tag: '#QuantumComputing', postCount: 1240 },
   { id: '2', tag: '#GreenEnergy', postCount: 856 },

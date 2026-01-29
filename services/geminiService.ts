@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, Modality } from "@google/genai";
+import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { TrendingItem } from "../types.ts";
 
 export interface GlobalNewsResult {
@@ -35,6 +35,35 @@ export const searchGlobalNews = async (query: string): Promise<GlobalNewsResult>
   }
 };
 
+export const translateDispatch = async (title: string, content: string, targetLang: string): Promise<{ title: string; content: string }> => {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Translate the following news dispatch into ${targetLang}. 
+      Return only a JSON object with keys "title" and "content".
+      Title: ${title}
+      Content: ${content}`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            content: { type: Type.STRING },
+          },
+          required: ["title", "content"]
+        }
+      },
+    });
+
+    return JSON.parse(response.text || "{}");
+  } catch (error) {
+    console.error("Gemini Translation Error:", error);
+    throw error;
+  }
+};
+
 export const fetchLiveTrendingTopics = async (): Promise<TrendingItem[]> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -47,7 +76,6 @@ export const fetchLiveTrendingTopics = async (): Promise<TrendingItem[]> => {
     });
 
     const text = response.text || "";
-    // Simple parsing of the model output to extract tags
     const lines = text.split('\n').filter(line => line.includes('#'));
     
     if (lines.length === 0) return [];

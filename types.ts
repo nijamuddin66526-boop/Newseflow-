@@ -1,3 +1,4 @@
+
 export type PostType = 'BLOG' | 'PHOTO' | 'VIDEO';
 
 export interface User {
@@ -6,6 +7,8 @@ export interface User {
   username: string;
   avatar: string;
   bio: string;
+  phone?: string;
+  email?: string;
 }
 
 export interface Comment {

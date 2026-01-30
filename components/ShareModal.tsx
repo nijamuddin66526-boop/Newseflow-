@@ -26,7 +26,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ post, isOpen, onClose })
   if (!isOpen) return null;
 
   const shareUrl = window.location.href; // In a real app, this would be the post's unique URL
-  const shareText = `Check out this dispatch: "${post.title}" on NewsFlow.`;
+  const shareText = `Check out this dispatch: "${post.title}" on NetSphere News.`;
 
   const socialNetworks = [
     {

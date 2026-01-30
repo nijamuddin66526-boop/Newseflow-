@@ -223,11 +223,11 @@ const AppContent: React.FC = () => {
   const location = useLocation();
   const [viewMode, setViewMode] = useState<ViewMode>('HOME');
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('newsflow_user');
+    const saved = localStorage.getItem('netsphere_user');
     return saved ? JSON.parse(saved) : null;
   });
   const [posts, setPosts] = useState<Post[]>(() => {
-    const saved = localStorage.getItem('newsflow_posts');
+    const saved = localStorage.getItem('netsphere_posts');
     return saved ? JSON.parse(saved) : INITIAL_POSTS;
   });
   
@@ -243,17 +243,17 @@ const AppContent: React.FC = () => {
   const [globalSearchError, setGlobalSearchError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const [targetLanguage, setTargetLanguage] = useState(() => localStorage.getItem('newsflow_lang') || 'en');
-  const [autoTranslate, setAutoTranslate] = useState(() => localStorage.getItem('newsflow_auto_translate') === 'true');
+  const [targetLanguage, setTargetLanguage] = useState(() => localStorage.getItem('netsphere_lang') || 'en');
+  const [autoTranslate, setAutoTranslate] = useState(() => localStorage.getItem('netsphere_auto_translate') === 'true');
 
-  useEffect(() => { localStorage.setItem('newsflow_posts', JSON.stringify(posts)); }, [posts]);
+  useEffect(() => { localStorage.setItem('netsphere_posts', JSON.stringify(posts)); }, [posts]);
   useEffect(() => {
-    if (currentUser) localStorage.setItem('newsflow_user', JSON.stringify(currentUser));
-    else localStorage.removeItem('newsflow_user');
+    if (currentUser) localStorage.setItem('netsphere_user', JSON.stringify(currentUser));
+    else localStorage.removeItem('netsphere_user');
   }, [currentUser]);
 
-  useEffect(() => { localStorage.setItem('newsflow_lang', targetLanguage); }, [targetLanguage]);
-  useEffect(() => { localStorage.setItem('newsflow_auto_translate', String(autoTranslate)); }, [autoTranslate]);
+  useEffect(() => { localStorage.setItem('netsphere_lang', targetLanguage); }, [targetLanguage]);
+  useEffect(() => { localStorage.setItem('netsphere_auto_translate', String(autoTranslate)); }, [autoTranslate]);
 
   useEffect(() => {
     const getTrendingData = async () => {

@@ -23,7 +23,7 @@ export const Guidelines: React.FC = () => {
     {
       icon: <HeartHandshake className="w-6 h-6 text-orange-600" />,
       title: "Civil Discourse",
-      description: "NewsFlow is a platform for intelligence, not vitriol. Debate the data, not the individual. Harassment leads to immediate credential revocation."
+      description: "NetSphere News is a platform for intelligence, not vitriol. Debate the data, not the individual. Harassment leads to immediate credential revocation."
     }
   ];
 
@@ -39,7 +39,7 @@ export const Guidelines: React.FC = () => {
             </div>
             <h1 className="text-4xl font-black text-white tracking-tighter mb-4 italic">Standards Bureau</h1>
             <p className="text-slate-400 max-w-md mx-auto font-medium leading-relaxed">
-              The NewsFlow Manifesto: Ensuring the integrity of global information through decentralized verification and ethical reporting.
+              The NetSphere Manifesto: Ensuring the integrity of global information through decentralized verification and ethical reporting.
             </p>
           </div>
         </div>
@@ -48,7 +48,7 @@ export const Guidelines: React.FC = () => {
           <section>
             <h2 className="text-xl font-black text-slate-900 mb-8 flex items-center">
               <span className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center mr-3 text-xs">01</span>
-              The Four Pillars of NewsFlow
+              The Four Pillars of NetSphere News
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {standards.map((s, idx) => (
@@ -69,7 +69,7 @@ export const Guidelines: React.FC = () => {
               <div>
                 <h3 className="font-bold text-amber-900 mb-1 text-sm uppercase tracking-tight">Zero Tolerance Protocol</h3>
                 <p className="text-sm text-amber-700 font-medium leading-relaxed">
-                  Deepfakes, AI-generated fabrications without clear labeling, and incitement of violence will result in permanent hardware-level bans from the NewsFlow network.
+                  Deepfakes, AI-generated fabrications without clear labeling, and incitement of violence will result in permanent hardware-level bans from the NetSphere News network.
                 </p>
               </div>
             </div>
@@ -80,7 +80,7 @@ export const Guidelines: React.FC = () => {
               <CheckCircle2 className="w-12 h-12 text-blue-600 mx-auto mb-4" />
               <h3 className="text-lg font-black text-slate-900 mb-2">Correspondent's Pledge</h3>
               <p className="text-sm text-slate-500 mb-8 font-medium italic">
-                "I hereby commit to the pursuit of truth, the verification of data, and the protection of the NewsFlow ecosystem."
+                "I hereby commit to the pursuit of truth, the verification of data, and the protection of the NetSphere ecosystem."
               </p>
               <Button fullWidth size="lg" className="rounded-2xl shadow-xl shadow-blue-100 font-black">
                 Confirm Credentials

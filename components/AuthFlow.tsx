@@ -53,7 +53,7 @@ export const AuthFlow: React.FC<AuthFlowProps> = ({ onComplete }) => {
       name: `${data.firstName} ${data.lastName}`,
       username: `${data.firstName.toLowerCase()}${Math.floor(Math.random() * 100)}`,
       avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.firstName}`,
-      bio: 'Verified NewsFlow Correspondent.',
+      bio: 'Verified NetSphere Correspondent.',
       phone: !data.isEmail ? data.contact : undefined,
       email: data.isEmail ? data.contact : undefined
     });
@@ -70,7 +70,7 @@ export const AuthFlow: React.FC<AuthFlowProps> = ({ onComplete }) => {
     <div className="flex flex-col items-center justify-center h-full px-6 py-12 bg-white animate-in fade-in">
       <div className="w-full max-w-sm text-center">
         <img src="https://upload.wikimedia.org/wikipedia/commons/e/ee/Social_media_art.png" className="w-full mb-8 rounded-[2rem] shadow-sm" />
-        <h1 className="text-3xl font-black text-[#1c1e21] mb-2 tracking-tighter">Join NewsFlow</h1>
+        <h1 className="text-3xl font-black text-[#1c1e21] mb-2 tracking-tighter">Join NetSphere News</h1>
         <p className="text-[15px] text-[#65676b] mb-10 leading-relaxed px-4">Create an account to connect with correspondents and share live reports from around the world.</p>
         <div className="space-y-4">
           <Button fullWidth className="bg-[#0064E0] hover:bg-[#0057C2] h-12 rounded-full font-bold text-base" onClick={() => next('NAME')}>
@@ -198,10 +198,10 @@ export const AuthFlow: React.FC<AuthFlowProps> = ({ onComplete }) => {
   const renderTerms = () => (
     <div className="flex flex-col h-full bg-white p-6 animate-in slide-in-from-right duration-300">
       <button onClick={back} className="mb-6"><ChevronLeft className="w-6 h-6 text-[#1c1e21]" /></button>
-      <h2 className="text-2xl font-bold text-[#1c1e21] mb-6">Agree to NewsFlow's terms and policies</h2>
+      <h2 className="text-2xl font-bold text-[#1c1e21] mb-6">Agree to NetSphere News's terms and policies</h2>
       <div className="space-y-4 text-[#65676b] text-[15px] leading-relaxed mb-10">
-        <p>People who use our service may have uploaded your contact information to NewsFlow. <span className="text-[#1877F2] font-bold">Learn more</span></p>
-        <p>By tapping I agree, you agree to create an account and to NewsFlow's <span className="text-[#1877F2] font-bold">Terms</span>, <span className="text-[#1877F2] font-bold">Privacy Policy</span> and <span className="text-[#1877F2] font-bold">Cookies Policy</span>.</p>
+        <p>People who use our service may have uploaded your contact information to NetSphere News. <span className="text-[#1877F2] font-bold">Learn more</span></p>
+        <p>By tapping I agree, you agree to create an account and to NetSphere News's <span className="text-[#1877F2] font-bold">Terms</span>, <span className="text-[#1877F2] font-bold">Privacy Policy</span> and <span className="text-[#1877F2] font-bold">Cookies Policy</span>.</p>
         <p>The <span className="text-[#1877F2] font-bold">Privacy Policy</span> describes the ways we can use the information we collect when you create an account.</p>
       </div>
       <Button fullWidth className="bg-[#0064E0] h-14 rounded-full font-bold text-lg" onClick={() => next('VERIFICATION_METHOD')}>

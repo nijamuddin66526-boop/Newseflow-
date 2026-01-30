@@ -128,7 +128,7 @@ export const fetchGlobalTrendingStories = async (): Promise<Post[]> => {
     return stories.map((s: any, idx: number) => ({
       id: `gt-${idx}-${Date.now()}`,
       userId: 'system-ai',
-      authorName: 'NewsFlow Intelligence',
+      authorName: 'NetSphere Intelligence',
       authorUsername: 'global_node',
       authorAvatar: `https://api.dicebear.com/7.x/bottts/svg?seed=global${idx}`,
       type: 'PHOTO',

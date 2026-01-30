@@ -109,7 +109,7 @@ export const TrendingSidebar: React.FC<TrendingSidebarProps> = ({ trending, onSe
         <span className="cursor-pointer hover:text-blue-600 transition-colors">Terms</span>
         <span className="cursor-pointer hover:text-blue-600 transition-colors">Privacy</span>
         <span className="cursor-pointer hover:text-blue-600 transition-colors">Support</span>
-        <span className="text-slate-200">© 2025 NEWSFLOW</span>
+        <span className="text-slate-200">© 2025 NETSPHERE NEWS</span>
       </div>
     </div>
   );

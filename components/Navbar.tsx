@@ -31,7 +31,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Left: Branding */}
       <Link to="/" className="flex items-center space-x-2 flex-shrink-0">
         <Compass className="w-7 h-7 text-blue-600 fill-current" />
-        <span className="text-xl font-black text-slate-900 tracking-tighter italic">NewsFlow</span>
+        <span className="text-xl font-black text-slate-900 tracking-tighter italic">NetSphere News</span>
       </Link>
 
       {/* Center: Expandable Search (YouTube Style) */}

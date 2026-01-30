@@ -11,12 +11,12 @@ const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const safeJsonParse = (text: string, fallback: any) => {
   try {
-    // Attempt to extract JSON if it's wrapped in markdown code blocks
-    const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || text.match(/\[[\s\S]*\]/) || text.match(/\{[\s\S]*\}/);
-    const cleanText = jsonMatch ? jsonMatch[0].replace(/```json|```/g, '').trim() : text.trim();
+    // Attempt to extract JSON if it's wrapped in markdown code blocks or has extra text
+    const jsonMatch = text.match(/\[[\s\S]*\]/) || text.match(/\{[\s\S]*\}/);
+    const cleanText = jsonMatch ? jsonMatch[0] : text.trim();
     return JSON.parse(cleanText);
   } catch (e) {
-    console.error("JSON Parse Error:", e, "Original text:", text);
+    console.warn("JSON Parse Error, using fallback:", e);
     return fallback;
   }
 };
@@ -27,9 +27,7 @@ export const searchGlobalNews = async (query: string): Promise<GlobalNewsResult>
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Search for the latest news about: "${query}". Provide a concise summary.`,
-      config: {
-        tools: [{ googleSearch: {} }],
-      },
+      config: { tools: [{ googleSearch: {} }] },
     });
 
     const text = response.text || "No summary available.";
@@ -54,8 +52,7 @@ export const translateDispatch = async (title: string, content: string, targetLa
     const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `Translate the following news dispatch into ${targetLang}. 
-      Return only a JSON object with keys "title" and "content".
+      contents: `Translate the following news dispatch into ${targetLang}. Return ONLY a JSON object.
       Title: ${title}
       Content: ${content}`,
       config: {
@@ -83,26 +80,18 @@ export const fetchLiveTrendingTopics = async (): Promise<TrendingItem[]> => {
     const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: "Search Google News for the current top 5 trending topics worldwide. Provide them as a list of hashtags with estimated mention counts. Format each line exactly as: #Hashtag: Number",
-      config: {
-        tools: [{ googleSearch: {} }],
-      },
+      contents: "Search Google News for top 5 trending topics globally. Format as: #Hashtag: Count",
+      config: { tools: [{ googleSearch: {} }] },
     });
 
     const text = response.text || "";
     const lines = text.split('\n').filter(line => line.includes('#'));
     
-    if (lines.length === 0) return [];
-
     return lines.slice(0, 5).map((line, idx) => {
       const parts = line.replace(/^[*\s-]+/, '').split(':');
       const tag = parts[0]?.trim() || `#Trend${idx}`;
-      const countStr = parts[1]?.replace(/[^0-9]/g, '') || "1500";
-      return {
-        id: `live-${idx}`,
-        tag: tag.startsWith('#') ? tag : `#${tag}`,
-        postCount: parseInt(countStr)
-      };
+      const countStr = parts[1]?.replace(/[^0-9]/g, '') || "1000";
+      return { id: `live-${idx}`, tag: tag.startsWith('#') ? tag : `#${tag}`, postCount: parseInt(countStr) };
     });
   } catch (error) {
     console.error("Failed to fetch live trends:", error);
@@ -115,7 +104,7 @@ export const fetchGlobalTrendingStories = async (): Promise<Post[]> => {
     const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
-      contents: "Get the 5 most significant breaking news stories from Google News right now. For each story, provide: 1. Title, 2. A 3-sentence summary, 3. Category, 4. A representative image keyword. Format as a JSON array of objects.",
+      contents: "Get 5 top breaking news stories from Google News globally. Return JSON array with keys: title, content, category, imageKeyword.",
       config: {
         tools: [{ googleSearch: {} }],
         responseMimeType: "application/json",
@@ -136,79 +125,53 @@ export const fetchGlobalTrendingStories = async (): Promise<Post[]> => {
     });
 
     const stories = safeJsonParse(response.text || "[]", []);
-    
     return stories.map((s: any, idx: number) => ({
-      id: `global-trend-${idx}`,
+      id: `gt-${idx}-${Date.now()}`,
       userId: 'system-ai',
-      authorName: 'Global Intel',
-      authorUsername: 'global_feed',
+      authorName: 'NewsFlow Intelligence',
+      authorUsername: 'global_node',
       authorAvatar: `https://api.dicebear.com/7.x/bottts/svg?seed=global${idx}`,
       type: 'PHOTO',
-      category: s.category || 'World',
+      category: s.category || 'Global',
       title: s.title,
       content: s.content,
-      mediaUrl: `https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=800&auto=format&fit=crop`, // Safe fallback image
+      mediaUrl: `https://images.unsplash.com/photo-1585829365234-75486981faee?q=80&w=800&auto=format&fit=crop`,
       likes: [],
       savedBy: [],
       comments: [],
-      views: Math.floor(Math.random() * 50000) + 10000,
-      shares: Math.floor(Math.random() * 1000),
-      createdAt: new Date().toISOString(),
-      location: { name: 'Global Network' }
+      views: 15000 + Math.floor(Math.random() * 50000),
+      shares: 500 + Math.floor(Math.random() * 2000),
+      createdAt: new Date().toISOString()
     }));
   } catch (error) {
-    console.error("Failed to fetch global stories:", error);
+    console.error("Failed global stories:", error);
     return [];
   }
 };
 
 export const generateAIImage = async (prompt: string): Promise<string> => {
-  try {
-    const ai = getAI();
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [{ text: `News photo: ${prompt}` }],
-      },
-      config: {
-        imageConfig: { aspectRatio: "16:9" },
-      },
-    });
-
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) {
-        return `data:image/png;base64,${part.inlineData.data}`;
-      }
-    }
-    throw new Error("No image data");
-  } catch (error) {
-    console.error("Image Gen Error:", error);
-    throw error;
-  }
+  const ai = getAI();
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash-image',
+    contents: { parts: [{ text: `Journalism photo, high quality: ${prompt}` }] },
+    config: { imageConfig: { aspectRatio: "16:9" } },
+  });
+  const part = response.candidates?.[0]?.content?.parts.find(p => p.inlineData);
+  if (part?.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
+  throw new Error("No image data returned");
 };
 
 export const generateNewsAudio = async (title: string, content: string): Promise<string> => {
-  try {
-    const ai = getAI();
-    const fullText = `News Title: ${title}. Content: ${content}`;
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text: fullText }] }],
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: 'Kore' },
-          },
-        },
-      },
-    });
-
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (!base64Audio) throw new Error("Audio generation failed");
-    return base64Audio;
-  } catch (error) {
-    console.error("Gemini TTS Error:", error);
-    throw error;
-  }
+  const ai = getAI();
+  const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash-preview-tts",
+    contents: [{ parts: [{ text: `${title}. ${content}` }] }],
+    config: {
+      responseModalities: [Modality.AUDIO],
+      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
+    },
+  });
+  const audioData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+  if (!audioData) throw new Error("Audio generation failed");
+  return audioData;
 };

@@ -10,6 +10,7 @@ import { TrendingSidebar } from './components/TrendingSidebar.tsx';
 import { GlobalNewsSearch } from './components/GlobalNewsSearch.tsx';
 import { Guidelines } from './components/Guidelines.tsx';
 import { BottomNav } from './components/BottomNav.tsx';
+import { AuthFlow } from './components/AuthFlow.tsx';
 import { searchGlobalNews, GlobalNewsResult, fetchLiveTrendingTopics, fetchGlobalTrendingStories } from './services/geminiService.ts';
 import { 
   Home, 
@@ -88,7 +89,6 @@ const HomePage: React.FC<{
         />
       )}
       
-      {/* Category Pill Bar (Only for HOME mode) */}
       {viewMode === 'HOME' && (
         <div className="sticky top-[64px] z-30 bg-white border-b border-slate-100 flex items-center space-x-2 overflow-x-auto px-4 py-3 no-scrollbar">
           <button 
@@ -236,9 +236,6 @@ const AppContent: React.FC = () => {
   const [trendingNews, setTrendingNews] = useState<Post[]>([]);
   const [isTrendingNewsLoading, setIsTrendingNewsLoading] = useState(false);
   
-  const [loginMethod, setLoginMethod] = useState<'MOBILE' | 'GOOGLE'>('MOBILE');
-  const [mobileNumber, setMobileNumber] = useState('');
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [globalSearchResults, setGlobalSearchResults] = useState<GlobalNewsResult | null>(null);
@@ -359,19 +356,11 @@ const AppContent: React.FC = () => {
 
   if (!currentUser) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-8">
-        <div className="w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center mb-8 text-white shadow-xl shadow-blue-100 animate-bounce">
-          <Compass className="w-10 h-10" />
-        </div>
-        <h1 className="text-4xl font-black mb-2 tracking-tighter">NewsFlow</h1>
-        <p className="text-slate-400 font-bold text-sm uppercase tracking-widest mb-10 text-center">Dispatch Verified News</p>
-        <div className="w-full max-w-xs space-y-4">
-          <Button fullWidth size="lg" className="rounded-2xl h-14 font-black" onClick={() => setCurrentUser({ id: 'guest', name: 'Citizen Journalist', username: 'guest_jr', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=guest', bio: 'Field observer reporting live.' })}>
-            Enter Network
-          </Button>
-          <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest text-center">Secure Dispatch Gateway</p>
-        </div>
-      </div>
+      <AuthFlow 
+        onComplete={(user) => {
+          setCurrentUser(user);
+        }}
+      />
     );
   }
 
@@ -389,7 +378,6 @@ const AppContent: React.FC = () => {
       />
       
       <main className="max-w-screen-xl mx-auto flex flex-col lg:flex-row">
-        {/* Left Sidebar for Desktop */}
         <div className="hidden lg:block w-64 space-y-2 sticky top-24 h-fit p-4 flex-shrink-0">
           <button onClick={() => setViewMode('HOME')} className={`w-full flex items-center space-x-3 p-4 rounded-xl transition-all ${viewMode === 'HOME' && location.pathname === '/' ? 'bg-slate-100 font-black text-slate-900' : 'text-slate-500 hover:bg-slate-50'}`}>
             <Home className="w-5 h-5" /><span>Feed</span>
@@ -405,7 +393,6 @@ const AppContent: React.FC = () => {
           </Link>
         </div>
 
-        {/* Content Area */}
         <div className="flex-1 min-w-0">
           <Routes>
             <Route path="/" element={<HomePage posts={filteredPosts} allPosts={posts} currentUser={currentUser} viewMode={viewMode} onLike={handleLike} onShare={handleShare} onSave={handleSave} onComment={handleComment} onPostCreated={handleCreatePost} onUpdateLocation={() => {}} activeCategory={activeCategory} setActiveCategory={setActiveCategory} globalSearchResults={globalSearchResults} isSearchingGlobal={isSearchingGlobal} globalSearchError={globalSearchError} searchQuery={searchQuery} onTriggerGlobalSearch={handleGlobalSearch} targetLanguage={targetLanguage} autoTranslate={autoTranslate} showCreateModal={showCreateModal} setShowCreateModal={setShowCreateModal} isTrendingNewsLoading={isTrendingNewsLoading} />} />
@@ -414,7 +401,6 @@ const AppContent: React.FC = () => {
           </Routes>
         </div>
 
-        {/* Right Sidebar for Desktop */}
         <div className="hidden xl:block">
           <TrendingSidebar trending={trending} onSearch={setSearchQuery} isLoading={isTrendingLoading} />
         </div>

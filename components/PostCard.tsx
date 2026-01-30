@@ -14,7 +14,7 @@ import {
   CheckCircle2,
   Navigation,
   MoreVertical,
-  Play
+  VolumeX
 } from 'lucide-react';
 import { Button } from './Button.tsx';
 import { generateNewsAudio, translateDispatch } from '../services/geminiService.ts';
@@ -64,8 +64,16 @@ export const PostCard: React.FC<PostCardProps> = ({
   const [showOriginal, setShowOriginal] = useState(true);
   const [isNarrating, setIsNarrating] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
+
+  useEffect(() => {
+    return () => {
+      sourceNodeRef.current?.stop();
+      audioContextRef.current?.close();
+    };
+  }, []);
 
   const isLiked = post.likes.includes(currentUserId);
   const isSaved = post.savedBy?.includes(currentUserId);
@@ -88,13 +96,26 @@ export const PostCard: React.FC<PostCardProps> = ({
   }, [autoTranslate, targetLanguage, post.id]);
 
   const handleToggleNarration = async () => {
-    const titleToRead = showOriginal ? post.title : (translatedData?.title || post.title);
-    const contentToRead = showOriginal ? post.content : (translatedData?.content || post.content);
-    if (isPlayingAudio) { sourceNodeRef.current?.stop(); setIsPlayingAudio(false); return; }
+    if (isPlayingAudio) {
+      sourceNodeRef.current?.stop();
+      setIsPlayingAudio(false);
+      return;
+    }
+    
     setIsNarrating(true);
     try {
+      const titleToRead = showOriginal ? post.title : (translatedData?.title || post.title);
+      const contentToRead = showOriginal ? post.content : (translatedData?.content || post.content);
       const base64Data = await generateNewsAudio(titleToRead, contentToRead);
-      if (!audioContextRef.current) audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+      
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+      }
+      
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
+
       const buffer = await decodeAudioData(decodeBase64(base64Data), audioContextRef.current, 24000, 1);
       const source = audioContextRef.current.createBufferSource();
       source.buffer = buffer;
@@ -103,14 +124,17 @@ export const PostCard: React.FC<PostCardProps> = ({
       source.start();
       sourceNodeRef.current = source;
       setIsPlayingAudio(true);
-    } catch (err) { alert("Narration failed."); }
-    finally { setIsNarrating(false); }
+    } catch (err) {
+      console.error(err);
+      alert("Intelligence node narration offline.");
+    } finally {
+      setIsNarrating(false);
+    }
   };
 
   const displayedTitle = showOriginal ? post.title : (translatedData?.title || post.title);
   const displayedContent = showOriginal ? post.content : (translatedData?.content || post.content);
 
-  // Layout: GRID (YouTube Home style)
   if (layout === 'grid') {
     return (
       <div className="bg-white group cursor-pointer animate-in fade-in zoom-in-95 duration-300">
@@ -122,11 +146,6 @@ export const PostCard: React.FC<PostCardProps> = ({
               <p className="text-white text-xs font-black uppercase tracking-widest line-clamp-3">{post.title}</p>
             </div>
           )}
-          {post.type === 'VIDEO' && (
-            <div className="absolute bottom-2 right-2 bg-black/80 px-1.5 py-0.5 rounded text-[10px] font-bold text-white">
-              0:15
-            </div>
-          )}
         </div>
         <div className="flex space-x-3 mt-3 px-1 pb-4">
           <img src={post.authorAvatar} className="w-9 h-9 rounded-full bg-slate-200 border border-slate-100 flex-shrink-0" />
@@ -134,25 +153,17 @@ export const PostCard: React.FC<PostCardProps> = ({
             <h3 className="text-sm font-bold text-slate-900 line-clamp-2 leading-tight group-hover:text-blue-600 transition-colors">
               {displayedTitle}
             </h3>
-            <div className="flex items-center space-x-1 mt-1">
-              <span className="text-xs text-slate-500 font-medium truncate">{post.authorName}</span>
-              <CheckCircle2 className="w-3 h-3 text-slate-400" />
-            </div>
-            <div className="text-[11px] text-slate-500 font-medium flex items-center space-x-1">
-              <span>{(post.views / 1000).toFixed(1)}k views</span>
+            <div className="flex items-center space-x-1 mt-1 text-[11px] text-slate-500 font-medium">
+              <span>{post.authorName}</span>
               <span>•</span>
-              <span>1 day ago</span>
+              <span>{(post.views / 1000).toFixed(1)}k views</span>
             </div>
           </div>
-          <button className="h-fit p-1 text-slate-400 hover:text-slate-900">
-            <MoreVertical className="w-4 h-4" />
-          </button>
         </div>
       </div>
     );
   }
 
-  // Layout: IMMERSIVE (YouTube Shorts style)
   return (
     <div className="relative w-full aspect-[9/16] bg-black overflow-hidden sm:rounded-[2.5rem] shadow-2xl group border-b sm:border border-slate-800">
       <div className="absolute inset-0 z-0">
@@ -184,7 +195,7 @@ export const PostCard: React.FC<PostCardProps> = ({
 
       <div className="absolute right-3 bottom-24 z-20 flex flex-col items-center space-y-6">
         <button onClick={() => onLike(post.id)} className="flex flex-col items-center group">
-          <div className={`p-3 rounded-full transition-all group-active:scale-125 ${isLiked ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}>
+          <div className={`p-3 rounded-full transition-all group-active:scale-125 ${isLiked ? 'bg-red-500 text-white shadow-lg' : 'bg-white/10 text-white hover:bg-white/20'}`}>
             <Heart className={`w-6 h-6 ${isLiked ? 'fill-current' : ''}`} />
           </div>
           <span className="text-[10px] font-black text-white mt-1 drop-shadow-md">{post.likes.length}</span>
@@ -211,7 +222,7 @@ export const PostCard: React.FC<PostCardProps> = ({
         </button>
 
         <button onClick={handleToggleNarration} disabled={isNarrating} className="flex flex-col items-center group">
-          <div className={`p-3 rounded-full transition-all ${isPlayingAudio ? 'bg-emerald-500 text-white animate-pulse' : 'bg-white/10 text-white hover:bg-white/20'}`}>
+          <div className={`p-3 rounded-full transition-all ${isPlayingAudio ? 'bg-emerald-500 text-white animate-pulse shadow-emerald-500/50' : 'bg-white/10 text-white hover:bg-white/20'}`}>
             {isNarrating ? <Loader2 className="w-6 h-6 animate-spin" /> : (isPlayingAudio ? <Volume2 className="w-6 h-6" /> : <Speaker className="w-6 h-6" />)}
           </div>
         </button>
@@ -222,7 +233,7 @@ export const PostCard: React.FC<PostCardProps> = ({
           {targetLanguage !== 'en' && (
             <button 
               onClick={showOriginal ? handleTranslate : () => setShowOriginal(true)}
-              className="mb-3 flex items-center space-x-2 px-3 py-1 rounded-lg bg-blue-600/30 border border-blue-400/30 text-[9px] font-black uppercase tracking-widest text-blue-200"
+              className="mb-3 flex items-center space-x-2 px-3 py-1 rounded-lg bg-blue-600 border border-blue-400 text-[9px] font-black uppercase tracking-widest"
             >
               {isTranslating ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Languages className="w-2.5 h-2.5" />}
               <span>{showOriginal ? `Translate to ${currentLangObj.native}` : 'Original Intel'}</span>
@@ -238,14 +249,14 @@ export const PostCard: React.FC<PostCardProps> = ({
           <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto mb-6" onClick={() => setShowComments(false)} />
           <div className="flex items-center justify-between mb-6">
             <h3 className="font-black text-slate-900 uppercase text-xs tracking-widest">Analysis Feed ({post.comments.length})</h3>
-            <button onClick={() => setShowComments(false)} className="text-slate-400 hover:text-slate-900">
+            <button onClick={() => setShowComments(false)} className="p-2 text-slate-400 hover:text-slate-900">
               <RotateCcw className="w-5 h-5" />
             </button>
           </div>
           <div className="space-y-4 h-[calc(100%-120px)] overflow-y-auto no-scrollbar">
             {post.comments.map(c => (
               <div key={c.id} className="flex space-x-3">
-                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black uppercase">{c.userName[0]}</div>
+                <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-black uppercase">{c.userName[0]}</div>
                 <div className="flex-1">
                   <p className="text-[10px] font-black text-slate-900">@{c.userName}</p>
                   <p className="text-xs text-slate-600 font-medium">{c.text}</p>
@@ -256,9 +267,9 @@ export const PostCard: React.FC<PostCardProps> = ({
           <div className="absolute bottom-6 inset-x-6 flex items-center space-x-2">
             <input 
               value={commentText} onChange={e => setCommentText(e.target.value)}
-              className="flex-1 bg-slate-100 rounded-xl px-4 py-2 text-xs outline-none focus:ring-1 focus:ring-blue-500" placeholder="Dispatch comment..."
+              className="flex-1 bg-slate-100 rounded-xl px-4 py-3 text-xs outline-none focus:ring-1 focus:ring-blue-500" placeholder="Dispatch comment..."
             />
-            <Button size="sm" onClick={() => { if(commentText.trim()) { onComment(post.id, commentText); setCommentText(''); } }}>Send</Button>
+            <Button size="sm" className="rounded-xl px-6 h-10 font-bold" onClick={() => { if(commentText.trim()) { onComment(post.id, commentText); setCommentText(''); } }}>Send</Button>
           </div>
         </div>
       )}

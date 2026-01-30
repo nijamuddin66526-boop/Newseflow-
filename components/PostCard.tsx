@@ -5,18 +5,16 @@ import {
   Heart, 
   MessageCircle, 
   Share2, 
-  MoreHorizontal, 
-  Clock, 
-  Pause,
   Speaker,
-  Eye,
   Bookmark,
-  X,
   Loader2,
-  Check,
   Languages,
   RotateCcw,
-  Zap
+  Volume2,
+  CheckCircle2,
+  Navigation,
+  MoreVertical,
+  Play
 } from 'lucide-react';
 import { Button } from './Button.tsx';
 import { generateNewsAudio, translateDispatch } from '../services/geminiService.ts';
@@ -34,132 +32,70 @@ interface PostCardProps {
   onUpdateLocation: (postId: string, location: any) => void;
   targetLanguage: string;
   autoTranslate: boolean;
+  layout?: 'grid' | 'immersive';
 }
 
 function decodeBase64(base64: string) {
   const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
   return bytes;
 }
 
-async function decodeAudioData(
-  data: Uint8Array,
-  ctx: AudioContext,
-  sampleRate: number,
-  numChannels: number,
-): Promise<AudioBuffer> {
+async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> {
   const dataInt16 = new Int16Array(data.buffer, data.byteOffset, data.byteLength / 2);
   const frameCount = dataInt16.length / numChannels;
   const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
-
   for (let channel = 0; channel < numChannels; channel++) {
     const channelData = buffer.getChannelData(channel);
-    for (let i = 0; i < frameCount; i++) {
-      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
-    }
+    for (let i = 0; i < frameCount; i++) channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
   }
   return buffer;
 }
 
 export const PostCard: React.FC<PostCardProps> = ({ 
-  post, 
-  currentUserId, 
-  allPosts,
-  onLike, 
-  onShare, 
-  onSave, 
-  onComment,
-  onUpdateLocation,
-  targetLanguage,
-  autoTranslate
+  post, currentUserId, onLike, onShare, onSave, onComment, targetLanguage, autoTranslate, layout = 'grid'
 }) => {
   const [showComments, setShowComments] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [commentText, setCommentText] = useState('');
-
-  // Translation states
   const [isTranslating, setIsTranslating] = useState(false);
   const [translatedData, setTranslatedData] = useState<{ title: string; content: string } | null>(null);
   const [showOriginal, setShowOriginal] = useState(true);
-
   const [isNarrating, setIsNarrating] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
-  const audioBufferRef = useRef<AudioBuffer | null>(null);
 
   const isLiked = post.likes.includes(currentUserId);
   const isSaved = post.savedBy?.includes(currentUserId);
-
   const currentLangObj = SUPPORTED_LANGUAGES.find(l => l.code === targetLanguage) || SUPPORTED_LANGUAGES[0];
 
   const handleTranslate = async () => {
-    if (translatedData) {
-      setShowOriginal(false);
-      return;
-    }
-
+    if (translatedData) { setShowOriginal(false); return; }
     setIsTranslating(true);
     try {
       const result = await translateDispatch(post.title, post.content, currentLangObj.name);
       setTranslatedData(result);
       setShowOriginal(false);
-    } catch (err) {
-      console.error("Translation error", err);
-    } finally {
-      setIsTranslating(false);
-    }
+    } catch (err) { console.error(err); }
+    finally { setIsTranslating(false); }
   };
 
-  // Logic for Auto-Translation (Oto language translate)
   useEffect(() => {
-    if (autoTranslate && targetLanguage !== 'en' && !translatedData && !isTranslating) {
-      handleTranslate();
-    } else if (targetLanguage === 'en') {
-      setShowOriginal(true);
-    }
+    if (autoTranslate && targetLanguage !== 'en' && !translatedData && !isTranslating) handleTranslate();
+    else if (targetLanguage === 'en') setShowOriginal(true);
   }, [autoTranslate, targetLanguage, post.id]);
-
-  useEffect(() => {
-    // Reset translated content if target language changes to a different non-english language
-    if (translatedData && targetLanguage !== 'en') {
-       setTranslatedData(null);
-       if (autoTranslate) handleTranslate();
-    }
-  }, [targetLanguage]);
-
-  useEffect(() => {
-    return () => {
-      sourceNodeRef.current?.stop();
-    };
-  }, []);
 
   const handleToggleNarration = async () => {
     const titleToRead = showOriginal ? post.title : (translatedData?.title || post.title);
     const contentToRead = showOriginal ? post.content : (translatedData?.content || post.content);
-
-    if (isPlayingAudio) {
-      sourceNodeRef.current?.stop();
-      setIsPlayingAudio(false);
-      return;
-    }
-
+    if (isPlayingAudio) { sourceNodeRef.current?.stop(); setIsPlayingAudio(false); return; }
     setIsNarrating(true);
     try {
       const base64Data = await generateNewsAudio(titleToRead, contentToRead);
-      const audioData = decodeBase64(base64Data);
-      
-      if (!audioContextRef.current) {
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-      }
-      
-      const buffer = await decodeAudioData(audioData, audioContextRef.current, 24000, 1);
-      audioBufferRef.current = buffer;
-
+      if (!audioContextRef.current) audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+      const buffer = await decodeAudioData(decodeBase64(base64Data), audioContextRef.current, 24000, 1);
       const source = audioContextRef.current.createBufferSource();
       source.buffer = buffer;
       source.connect(audioContextRef.current.destination);
@@ -167,214 +103,167 @@ export const PostCard: React.FC<PostCardProps> = ({
       source.start();
       sourceNodeRef.current = source;
       setIsPlayingAudio(true);
-    } catch (err) {
-      console.error("Narration failed", err);
-      alert("AI Narration failed. Check your network or API key.");
-    } finally {
-      setIsNarrating(false);
-    }
-  };
-
-  const handleShareClick = () => {
-    onShare(post.id);
-    setShowShareModal(true);
-  };
-
-  const timeAgo = (dateStr: string) => {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    const hrs = Math.floor(mins / 60);
-    const days = Math.floor(hrs / 24);
-    if (days > 0) return `${days}d ago`;
-    if (hrs > 0) return `${hrs}h ago`;
-    if (mins > 0) return `${mins}m ago`;
-    return 'Just now';
+    } catch (err) { alert("Narration failed."); }
+    finally { setIsNarrating(false); }
   };
 
   const displayedTitle = showOriginal ? post.title : (translatedData?.title || post.title);
   const displayedContent = showOriginal ? post.content : (translatedData?.content || post.content);
 
+  // Layout: GRID (YouTube Home style)
+  if (layout === 'grid') {
+    return (
+      <div className="bg-white group cursor-pointer animate-in fade-in zoom-in-95 duration-300">
+        <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-100 shadow-sm">
+          {post.mediaUrl ? (
+            <img src={post.mediaUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+          ) : (
+            <div className="w-full h-full bg-slate-900 flex items-center justify-center p-6 text-center">
+              <p className="text-white text-xs font-black uppercase tracking-widest line-clamp-3">{post.title}</p>
+            </div>
+          )}
+          {post.type === 'VIDEO' && (
+            <div className="absolute bottom-2 right-2 bg-black/80 px-1.5 py-0.5 rounded text-[10px] font-bold text-white">
+              0:15
+            </div>
+          )}
+        </div>
+        <div className="flex space-x-3 mt-3 px-1 pb-4">
+          <img src={post.authorAvatar} className="w-9 h-9 rounded-full bg-slate-200 border border-slate-100 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-bold text-slate-900 line-clamp-2 leading-tight group-hover:text-blue-600 transition-colors">
+              {displayedTitle}
+            </h3>
+            <div className="flex items-center space-x-1 mt-1">
+              <span className="text-xs text-slate-500 font-medium truncate">{post.authorName}</span>
+              <CheckCircle2 className="w-3 h-3 text-slate-400" />
+            </div>
+            <div className="text-[11px] text-slate-500 font-medium flex items-center space-x-1">
+              <span>{(post.views / 1000).toFixed(1)}k views</span>
+              <span>•</span>
+              <span>1 day ago</span>
+            </div>
+          </div>
+          <button className="h-fit p-1 text-slate-400 hover:text-slate-900">
+            <MoreVertical className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Layout: IMMERSIVE (YouTube Shorts style)
   return (
-    <>
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden mb-6 transition-all hover:shadow-md">
-        {/* Header */}
-        <div className="p-4 flex items-center justify-between bg-white">
-          <div className="flex items-center space-x-3">
-            <img src={post.authorAvatar} alt={post.authorName} className="w-10 h-10 rounded-xl object-cover ring-2 ring-blue-50" />
-            <div>
-              <div className="flex items-center space-x-1">
-                <h3 className="text-sm font-black text-slate-900 leading-none">{post.authorName}</h3>
-                <Check className="w-3 h-3 text-blue-600 fill-blue-600" />
-              </div>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">@{post.authorUsername} • {timeAgo(post.createdAt)}</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-2">
-            {targetLanguage !== 'en' && (
-              <button 
-                onClick={showOriginal ? handleTranslate : () => setShowOriginal(true)}
-                disabled={isTranslating}
-                className={`flex items-center space-x-2 px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${!showOriginal ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-blue-200 hover:text-blue-600'}`}
-              >
-                {isTranslating ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                ) : !showOriginal ? (
-                  <RotateCcw className="w-3 h-3" />
-                ) : (
-                  <Languages className="w-3 h-3" />
-                )}
-                <span>{!showOriginal ? 'View Original' : `Translate to ${currentLangObj.native}`}</span>
-              </button>
-            )}
-            <div className="bg-slate-100 px-3 py-1 rounded-full text-[10px] font-black text-slate-500 uppercase tracking-wider">
-              {post.category}
-            </div>
-          </div>
-        </div>
-
-        {/* Content Section */}
-        <div className="px-4 pb-4 animate-in fade-in duration-500 relative">
-          {isTranslating && (
-             <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center space-y-2 animate-in fade-in">
-               <Zap className="w-6 h-6 text-blue-600 animate-bounce fill-current" />
-               <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Live Auto-Syncing Dispatch...</span>
-             </div>
-          )}
-          
-          {!showOriginal && (
-            <div className="flex items-center space-x-2 mb-2">
-              <Zap className="w-3 h-3 text-blue-600 fill-current" />
-              <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">AI Context Translation: {currentLangObj.native}</span>
-            </div>
-          )}
-          <h2 className="text-xl font-black text-slate-900 mb-2 leading-tight tracking-tight">{displayedTitle}</h2>
-          <p className="text-sm text-slate-600 font-medium leading-relaxed mb-4">{displayedContent}</p>
-          
-          {/* Media */}
-          {post.type === 'PHOTO' && post.mediaUrl && (
-            <div className="relative aspect-video rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 mb-4 group">
-              <img src={post.mediaUrl} className="w-full h-full object-cover" alt="Visual Report" />
-            </div>
-          )}
-
-          {post.type === 'VIDEO' && post.mediaUrl && (
-            <div className="relative aspect-video rounded-2xl overflow-hidden bg-black mb-4">
-              <video src={post.mediaUrl} controls className="w-full h-full object-contain" />
-            </div>
-          )}
-
-          {/* AI Narration UI */}
-          <div className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${isPlayingAudio ? 'bg-blue-600 border-blue-500 shadow-lg shadow-blue-100' : 'bg-slate-50 border-slate-100'}`}>
-            <div className="flex items-center space-x-3">
-              <button 
-                onClick={handleToggleNarration}
-                disabled={isNarrating}
-                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isPlayingAudio ? 'bg-white text-blue-600' : 'bg-blue-600 text-white shadow-md'}`}
-              >
-                {isNarrating ? <Loader2 className="w-5 h-5 animate-spin" /> : (isPlayingAudio ? <Pause className="w-5 h-5 fill-current" /> : <Speaker className="w-5 h-5" />)}
-              </button>
-              <div>
-                <p className={`text-[10px] font-black uppercase tracking-widest leading-none mb-1 ${isPlayingAudio ? 'text-blue-100' : 'text-slate-400'}`}>
-                  {isPlayingAudio ? 'Broadcasting Narration' : 'AI Audio Brief'}
-                </p>
-                <p className={`text-xs font-bold ${isPlayingAudio ? 'text-white' : 'text-slate-900'}`}>
-                  {isNarrating ? 'Generating Voice...' : (isPlayingAudio ? 'Now playing dispatch...' : 'Listen in your selected tongue')}
-                </p>
-              </div>
-            </div>
-            {isPlayingAudio && (
-              <div className="flex space-x-1 pr-2">
-                {[1, 2, 3, 4].map(i => (
-                  <div key={i} className="w-1 bg-white/40 rounded-full animate-pulse" style={{ height: `${Math.random() * i + 8}px`, animationDelay: `${i * 0.1}s` }} />
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="px-4 py-3 border-t border-slate-50 flex items-center justify-between bg-slate-50/30">
-          <div className="flex items-center space-x-4">
-            <button onClick={() => onLike(post.id)} className="flex items-center space-x-1.5 group">
-              <div className={`p-2 rounded-full transition-colors ${isLiked ? 'text-red-500 bg-red-50' : 'text-slate-400 group-hover:bg-slate-100'}`}>
-                <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
-              </div>
-              <span className={`text-xs font-black ${isLiked ? 'text-red-500' : 'text-slate-500'}`}>{post.likes.length}</span>
-            </button>
-            <button onClick={() => setShowComments(!showComments)} className="flex items-center space-x-1.5 group">
-              <div className={`p-2 rounded-full transition-colors ${showComments ? 'text-blue-600 bg-blue-50' : 'text-slate-400 group-hover:bg-slate-100'}`}>
-                <MessageCircle className="w-5 h-5" />
-              </div>
-              <span className="text-xs font-black text-slate-500">{post.comments.length}</span>
-            </button>
-            <button onClick={handleShareClick} className="flex items-center space-x-1.5 group">
-              <div className="p-2 rounded-full text-slate-400 group-hover:bg-slate-100 transition-colors">
-                <Share2 className="w-5 h-5" />
-              </div>
-              <span className="text-xs font-black text-slate-500">{post.shares}</span>
-            </button>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="flex items-center text-slate-300 mr-2">
-              <Eye className="w-4 h-4 mr-1" />
-              <span className="text-[10px] font-black uppercase tracking-widest">{(post.views / 1000).toFixed(1)}k</span>
-            </div>
-            <button onClick={() => onSave(post.id)} className={`p-2 rounded-full transition-colors ${isSaved ? 'text-blue-600 bg-blue-50' : 'text-slate-400 hover:bg-slate-100'}`}>
-              <Bookmark className={`w-5 h-5 ${isSaved ? 'fill-current' : ''}`} />
-            </button>
-          </div>
-        </div>
-
-        {/* Comments */}
-        {showComments && (
-          <div className="border-t border-slate-100 p-4 bg-slate-50/50">
-            <div className="space-y-4 mb-4">
-              {post.comments.map(comment => (
-                <div key={comment.id} className="flex space-x-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-black text-blue-600 uppercase">
-                    {comment.userName.charAt(0)}
-                  </div>
-                  <div className="flex-1 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-black text-slate-900">{comment.userName}</span>
-                      <span className="text-[9px] font-black text-slate-400 uppercase">{timeAgo(comment.createdAt)}</span>
-                    </div>
-                    <p className="text-xs text-slate-600 font-medium">{comment.text}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center space-x-2">
-              <input 
-                type="text" 
-                placeholder="Add your analysis..." 
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-medium outline-none focus:ring-2 focus:ring-blue-500"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && commentText.trim()) {
-                    onComment(post.id, commentText);
-                    setCommentText('');
-                  }
-                }}
-              />
-              <Button size="sm" className="rounded-xl font-black h-9 px-4" onClick={() => {
-                if (commentText.trim()) {
-                  onComment(post.id, commentText);
-                  setCommentText('');
-                }
-              }}>Reply</Button>
-            </div>
-          </div>
+    <div className="relative w-full aspect-[9/16] bg-black overflow-hidden sm:rounded-[2.5rem] shadow-2xl group border-b sm:border border-slate-800">
+      <div className="absolute inset-0 z-0">
+        {post.type === 'VIDEO' && post.mediaUrl ? (
+          <video src={post.mediaUrl} autoPlay loop muted playsInline className="w-full h-full object-cover opacity-80" />
+        ) : post.mediaUrl ? (
+          <img src={post.mediaUrl} className="w-full h-full object-cover opacity-80" />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-b from-slate-900 to-black" />
         )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/40" />
       </div>
 
-      {/* Share Modal */}
-      <ShareModal 
-        post={post}
-        isOpen={showShareModal}
-        onClose={() => setShowShareModal(false)}
-      />
-    </>
+      <div className="absolute top-0 inset-x-0 p-5 z-20 flex justify-between items-start">
+        <div className="flex items-center space-x-3">
+          <img src={post.authorAvatar} className="w-10 h-10 rounded-full border-2 border-white/20" alt={post.authorName} />
+          <div>
+            <div className="flex items-center space-x-1">
+              <span className="text-white text-sm font-black tracking-tight">{post.authorName}</span>
+              <CheckCircle2 className="w-3 h-3 text-blue-400 fill-current" />
+            </div>
+            <p className="text-[10px] text-white/60 font-black uppercase tracking-widest">@{post.authorUsername}</p>
+          </div>
+        </div>
+        <div className="bg-white/10 backdrop-blur-md px-3 py-1 rounded-full text-[9px] font-black text-white uppercase tracking-wider border border-white/10">
+          {post.category}
+        </div>
+      </div>
+
+      <div className="absolute right-3 bottom-24 z-20 flex flex-col items-center space-y-6">
+        <button onClick={() => onLike(post.id)} className="flex flex-col items-center group">
+          <div className={`p-3 rounded-full transition-all group-active:scale-125 ${isLiked ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}>
+            <Heart className={`w-6 h-6 ${isLiked ? 'fill-current' : ''}`} />
+          </div>
+          <span className="text-[10px] font-black text-white mt-1 drop-shadow-md">{post.likes.length}</span>
+        </button>
+
+        <button onClick={() => setShowComments(!showComments)} className="flex flex-col items-center group">
+          <div className="p-3 rounded-full bg-white/10 text-white hover:bg-white/20 transition-all">
+            <MessageCircle className="w-6 h-6" />
+          </div>
+          <span className="text-[10px] font-black text-white mt-1 drop-shadow-md">{post.comments.length}</span>
+        </button>
+
+        <button onClick={() => setShowShareModal(true)} className="flex flex-col items-center group">
+          <div className="p-3 rounded-full bg-white/10 text-white hover:bg-white/20 transition-all">
+            <Share2 className="w-6 h-6" />
+          </div>
+          <span className="text-[10px] font-black text-white mt-1 drop-shadow-md">{post.shares}</span>
+        </button>
+
+        <button onClick={() => onSave(post.id)} className="flex flex-col items-center group">
+          <div className={`p-3 rounded-full transition-all ${isSaved ? 'bg-blue-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}>
+            <Bookmark className={`w-6 h-6 ${isSaved ? 'fill-current' : ''}`} />
+          </div>
+        </button>
+
+        <button onClick={handleToggleNarration} disabled={isNarrating} className="flex flex-col items-center group">
+          <div className={`p-3 rounded-full transition-all ${isPlayingAudio ? 'bg-emerald-500 text-white animate-pulse' : 'bg-white/10 text-white hover:bg-white/20'}`}>
+            {isNarrating ? <Loader2 className="w-6 h-6 animate-spin" /> : (isPlayingAudio ? <Volume2 className="w-6 h-6" /> : <Speaker className="w-6 h-6" />)}
+          </div>
+        </button>
+      </div>
+
+      <div className="absolute bottom-0 inset-x-0 p-6 z-10 flex flex-col justify-end min-h-[40%] text-white pointer-events-none">
+        <div className="max-w-[85%] pointer-events-auto">
+          {targetLanguage !== 'en' && (
+            <button 
+              onClick={showOriginal ? handleTranslate : () => setShowOriginal(true)}
+              className="mb-3 flex items-center space-x-2 px-3 py-1 rounded-lg bg-blue-600/30 border border-blue-400/30 text-[9px] font-black uppercase tracking-widest text-blue-200"
+            >
+              {isTranslating ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Languages className="w-2.5 h-2.5" />}
+              <span>{showOriginal ? `Translate to ${currentLangObj.native}` : 'Original Intel'}</span>
+            </button>
+          )}
+          <h2 className="text-xl font-black mb-2 tracking-tight line-clamp-2 leading-tight drop-shadow-lg">{displayedTitle}</h2>
+          <p className="text-sm font-medium text-white/80 line-clamp-3 leading-relaxed drop-shadow-md">{displayedContent}</p>
+        </div>
+      </div>
+
+      {showComments && (
+        <div className="absolute inset-x-0 bottom-0 h-2/3 bg-white z-50 rounded-t-[2.5rem] p-6 animate-in slide-in-from-bottom duration-300 pointer-events-auto">
+          <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto mb-6" onClick={() => setShowComments(false)} />
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="font-black text-slate-900 uppercase text-xs tracking-widest">Analysis Feed ({post.comments.length})</h3>
+            <button onClick={() => setShowComments(false)} className="text-slate-400 hover:text-slate-900">
+              <RotateCcw className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="space-y-4 h-[calc(100%-120px)] overflow-y-auto no-scrollbar">
+            {post.comments.map(c => (
+              <div key={c.id} className="flex space-x-3">
+                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black uppercase">{c.userName[0]}</div>
+                <div className="flex-1">
+                  <p className="text-[10px] font-black text-slate-900">@{c.userName}</p>
+                  <p className="text-xs text-slate-600 font-medium">{c.text}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="absolute bottom-6 inset-x-6 flex items-center space-x-2">
+            <input 
+              value={commentText} onChange={e => setCommentText(e.target.value)}
+              className="flex-1 bg-slate-100 rounded-xl px-4 py-2 text-xs outline-none focus:ring-1 focus:ring-blue-500" placeholder="Dispatch comment..."
+            />
+            <Button size="sm" onClick={() => { if(commentText.trim()) { onComment(post.id, commentText); setCommentText(''); } }}>Send</Button>
+          </div>
+        </div>
+      )}
+
+      <ShareModal post={post} isOpen={showShareModal} onClose={() => setShowShareModal(false)} />
+    </div>
   );
 };

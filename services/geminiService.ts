@@ -9,6 +9,18 @@ export interface GlobalNewsResult {
 
 const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
+const safeJsonParse = (text: string, fallback: any) => {
+  try {
+    // Attempt to extract JSON if it's wrapped in markdown code blocks
+    const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || text.match(/\[[\s\S]*\]/) || text.match(/\{[\s\S]*\}/);
+    const cleanText = jsonMatch ? jsonMatch[0].replace(/```json|```/g, '').trim() : text.trim();
+    return JSON.parse(cleanText);
+  } catch (e) {
+    console.error("JSON Parse Error:", e, "Original text:", text);
+    return fallback;
+  }
+};
+
 export const searchGlobalNews = async (query: string): Promise<GlobalNewsResult> => {
   try {
     const ai = getAI();
@@ -59,10 +71,10 @@ export const translateDispatch = async (title: string, content: string, targetLa
       },
     });
 
-    return JSON.parse(response.text || "{}");
+    return safeJsonParse(response.text || "{}", { title, content });
   } catch (error) {
     console.error("Gemini Translation Error:", error);
-    throw error;
+    return { title, content };
   }
 };
 
@@ -123,19 +135,19 @@ export const fetchGlobalTrendingStories = async (): Promise<Post[]> => {
       },
     });
 
-    const stories = JSON.parse(response.text || "[]");
+    const stories = safeJsonParse(response.text || "[]", []);
     
     return stories.map((s: any, idx: number) => ({
       id: `global-trend-${idx}`,
       userId: 'system-ai',
-      authorName: 'Global Intel Node',
+      authorName: 'Global Intel',
       authorUsername: 'global_feed',
-      authorAvatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=global',
+      authorAvatar: `https://api.dicebear.com/7.x/bottts/svg?seed=global${idx}`,
       type: 'PHOTO',
       category: s.category || 'World',
       title: s.title,
       content: s.content,
-      mediaUrl: `https://source.unsplash.com/featured/?${encodeURIComponent(s.imageKeyword || 'news')}`,
+      mediaUrl: `https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=800&auto=format&fit=crop`, // Safe fallback image
       likes: [],
       savedBy: [],
       comments: [],

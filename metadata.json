@@ -1,5 +1,5 @@
 {
-  "name": "NewsFlow",
+  "name": "NetSphere News",
   "description": "A modern social media platform for sharing news in blog, photo, and video formats with real-time interactions and global reporting features.",
   "requestFramePermissions": [
     "camera",

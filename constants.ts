@@ -12,18 +12,6 @@ export const NEWS_CATEGORIES = [
   'Science'
 ];
 
-export const SUPPORTED_LANGUAGES = [
-  { code: 'en', name: 'English', native: 'English' },
-  { code: 'bn', name: 'Bengali', native: 'বাংলা' },
-  { code: 'es', name: 'Spanish', native: 'Español' },
-  { code: 'fr', name: 'French', native: 'Français' },
-  { code: 'ar', name: 'Arabic', native: 'العربية' },
-  { code: 'de', name: 'German', native: 'Deutsch' },
-  { code: 'zh', name: 'Chinese', native: '中文' },
-  { code: 'hi', name: 'Hindi', native: 'हिन्दी' },
-  { code: 'ja', name: 'Japanese', native: '日本語' }
-];
-
 export const INITIAL_TRENDING: TrendingItem[] = [
   { id: '1', tag: '#QuantumComputing', postCount: 1240 },
   { id: '2', tag: '#GreenEnergy', postCount: 856 },
@@ -42,7 +30,7 @@ export const INITIAL_POSTS: Post[] = [
     type: 'BLOG',
     category: 'Technology',
     title: 'The Future of AI in Newsrooms',
-    content: 'As artificial intelligence continues to evolve, the landscape of journalism is shifting rapidly. Newsrooms are now using LLMs to assist with data analysis and fact-checking. However, the human element remains irreplaceable for investigative reporting and ethical judgment...',
+    content: 'As artificial intelligence continues to evolve, the landscape of journalism is shifting rapidly. Newsrooms are now using data analysis and fact-checking tools. However, the human element remains irreplaceable for investigative reporting and ethical judgment...',
     likes: ['u2', 'u3'],
     savedBy: [],
     comments: [

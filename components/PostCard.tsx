@@ -1,25 +1,17 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Post, Comment } from '../types.ts';
 import { 
   Heart, 
   MessageCircle, 
   Share2, 
-  Speaker,
   Bookmark,
-  Loader2,
-  Languages,
   RotateCcw,
-  Volume2,
   CheckCircle2,
-  Navigation,
-  MoreVertical,
-  VolumeX
+  MoreVertical
 } from 'lucide-react';
 import { Button } from './Button.tsx';
-import { generateNewsAudio, translateDispatch } from '../services/geminiService.ts';
 import { ShareModal } from './ShareModal.tsx';
-import { SUPPORTED_LANGUAGES } from '../constants.ts';
 
 interface PostCardProps {
   post: Post;
@@ -30,110 +22,18 @@ interface PostCardProps {
   onSave: (postId: string) => void;
   onComment: (postId: string, text: string) => void;
   onUpdateLocation: (postId: string, location: any) => void;
-  targetLanguage: string;
-  autoTranslate: boolean;
   layout?: 'grid' | 'immersive';
 }
 
-function decodeBase64(base64: string) {
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-  return bytes;
-}
-
-async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> {
-  const dataInt16 = new Int16Array(data.buffer, data.byteOffset, data.byteLength / 2);
-  const frameCount = dataInt16.length / numChannels;
-  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
-  for (let channel = 0; channel < numChannels; channel++) {
-    const channelData = buffer.getChannelData(channel);
-    for (let i = 0; i < frameCount; i++) channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
-  }
-  return buffer;
-}
-
 export const PostCard: React.FC<PostCardProps> = ({ 
-  post, currentUserId, onLike, onShare, onSave, onComment, targetLanguage, autoTranslate, layout = 'grid'
+  post, currentUserId, onLike, onShare, onSave, onComment, layout = 'grid'
 }) => {
   const [showComments, setShowComments] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [commentText, setCommentText] = useState('');
-  const [isTranslating, setIsTranslating] = useState(false);
-  const [translatedData, setTranslatedData] = useState<{ title: string; content: string } | null>(null);
-  const [showOriginal, setShowOriginal] = useState(true);
-  const [isNarrating, setIsNarrating] = useState(false);
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
-
-  useEffect(() => {
-    return () => {
-      sourceNodeRef.current?.stop();
-      audioContextRef.current?.close();
-    };
-  }, []);
-
   const isLiked = post.likes.includes(currentUserId);
   const isSaved = post.savedBy?.includes(currentUserId);
-  const currentLangObj = SUPPORTED_LANGUAGES.find(l => l.code === targetLanguage) || SUPPORTED_LANGUAGES[0];
-
-  const handleTranslate = async () => {
-    if (translatedData) { setShowOriginal(false); return; }
-    setIsTranslating(true);
-    try {
-      const result = await translateDispatch(post.title, post.content, currentLangObj.name);
-      setTranslatedData(result);
-      setShowOriginal(false);
-    } catch (err) { console.error(err); }
-    finally { setIsTranslating(false); }
-  };
-
-  useEffect(() => {
-    if (autoTranslate && targetLanguage !== 'en' && !translatedData && !isTranslating) handleTranslate();
-    else if (targetLanguage === 'en') setShowOriginal(true);
-  }, [autoTranslate, targetLanguage, post.id]);
-
-  const handleToggleNarration = async () => {
-    if (isPlayingAudio) {
-      sourceNodeRef.current?.stop();
-      setIsPlayingAudio(false);
-      return;
-    }
-    
-    setIsNarrating(true);
-    try {
-      const titleToRead = showOriginal ? post.title : (translatedData?.title || post.title);
-      const contentToRead = showOriginal ? post.content : (translatedData?.content || post.content);
-      const base64Data = await generateNewsAudio(titleToRead, contentToRead);
-      
-      if (!audioContextRef.current) {
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-      }
-      
-      if (audioContextRef.current.state === 'suspended') {
-        await audioContextRef.current.resume();
-      }
-
-      const buffer = await decodeAudioData(decodeBase64(base64Data), audioContextRef.current, 24000, 1);
-      const source = audioContextRef.current.createBufferSource();
-      source.buffer = buffer;
-      source.connect(audioContextRef.current.destination);
-      source.onended = () => setIsPlayingAudio(false);
-      source.start();
-      sourceNodeRef.current = source;
-      setIsPlayingAudio(true);
-    } catch (err) {
-      console.error(err);
-      alert("Intelligence node narration offline.");
-    } finally {
-      setIsNarrating(false);
-    }
-  };
-
-  const displayedTitle = showOriginal ? post.title : (translatedData?.title || post.title);
-  const displayedContent = showOriginal ? post.content : (translatedData?.content || post.content);
 
   if (layout === 'grid') {
     return (
@@ -151,7 +51,7 @@ export const PostCard: React.FC<PostCardProps> = ({
           <img src={post.authorAvatar} className="w-9 h-9 rounded-full bg-slate-200 border border-slate-100 flex-shrink-0" />
           <div className="flex-1 min-w-0">
             <h3 className="text-sm font-bold text-slate-900 line-clamp-2 leading-tight group-hover:text-blue-600 transition-colors">
-              {displayedTitle}
+              {post.title}
             </h3>
             <div className="flex items-center space-x-1 mt-1 text-[11px] text-slate-500 font-medium">
               <span>{post.authorName}</span>
@@ -220,27 +120,12 @@ export const PostCard: React.FC<PostCardProps> = ({
             <Bookmark className={`w-6 h-6 ${isSaved ? 'fill-current' : ''}`} />
           </div>
         </button>
-
-        <button onClick={handleToggleNarration} disabled={isNarrating} className="flex flex-col items-center group">
-          <div className={`p-3 rounded-full transition-all ${isPlayingAudio ? 'bg-emerald-500 text-white animate-pulse shadow-emerald-500/50' : 'bg-white/10 text-white hover:bg-white/20'}`}>
-            {isNarrating ? <Loader2 className="w-6 h-6 animate-spin" /> : (isPlayingAudio ? <Volume2 className="w-6 h-6" /> : <Speaker className="w-6 h-6" />)}
-          </div>
-        </button>
       </div>
 
       <div className="absolute bottom-0 inset-x-0 p-6 z-10 flex flex-col justify-end min-h-[40%] text-white pointer-events-none">
         <div className="max-w-[85%] pointer-events-auto">
-          {targetLanguage !== 'en' && (
-            <button 
-              onClick={showOriginal ? handleTranslate : () => setShowOriginal(true)}
-              className="mb-3 flex items-center space-x-2 px-3 py-1 rounded-lg bg-blue-600 border border-blue-400 text-[9px] font-black uppercase tracking-widest"
-            >
-              {isTranslating ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Languages className="w-2.5 h-2.5" />}
-              <span>{showOriginal ? `Translate to ${currentLangObj.native}` : 'Original Intel'}</span>
-            </button>
-          )}
-          <h2 className="text-xl font-black mb-2 tracking-tight line-clamp-2 leading-tight drop-shadow-lg">{displayedTitle}</h2>
-          <p className="text-sm font-medium text-white/80 line-clamp-3 leading-relaxed drop-shadow-md">{displayedContent}</p>
+          <h2 className="text-xl font-black mb-2 tracking-tight line-clamp-2 leading-tight drop-shadow-lg">{post.title}</h2>
+          <p className="text-sm font-medium text-white/80 line-clamp-3 leading-relaxed drop-shadow-md">{post.content}</p>
         </div>
       </div>
 
@@ -248,7 +133,7 @@ export const PostCard: React.FC<PostCardProps> = ({
         <div className="absolute inset-x-0 bottom-0 h-2/3 bg-white z-50 rounded-t-[2.5rem] p-6 animate-in slide-in-from-bottom duration-300 pointer-events-auto">
           <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto mb-6" onClick={() => setShowComments(false)} />
           <div className="flex items-center justify-between mb-6">
-            <h3 className="font-black text-slate-900 uppercase text-xs tracking-widest">Analysis Feed ({post.comments.length})</h3>
+            <h3 className="font-black text-slate-900 uppercase text-xs tracking-widest">Discussion ({post.comments.length})</h3>
             <button onClick={() => setShowComments(false)} className="p-2 text-slate-400 hover:text-slate-900">
               <RotateCcw className="w-5 h-5" />
             </button>
@@ -267,9 +152,9 @@ export const PostCard: React.FC<PostCardProps> = ({
           <div className="absolute bottom-6 inset-x-6 flex items-center space-x-2">
             <input 
               value={commentText} onChange={e => setCommentText(e.target.value)}
-              className="flex-1 bg-slate-100 rounded-xl px-4 py-3 text-xs outline-none focus:ring-1 focus:ring-blue-500" placeholder="Dispatch comment..."
+              className="flex-1 bg-slate-100 rounded-xl px-4 py-3 text-xs outline-none focus:ring-1 focus:ring-blue-500" placeholder="Type a message..."
             />
-            <Button size="sm" className="rounded-xl px-6 h-10 font-bold" onClick={() => { if(commentText.trim()) { onComment(post.id, commentText); setCommentText(''); } }}>Send</Button>
+            <Button size="sm" className="rounded-xl px-6 h-10 font-bold" onClick={() => { if(commentText.trim()) { onComment(post.id, commentText); setCommentText(''); } }}>Post</Button>
           </div>
         </div>
       )}

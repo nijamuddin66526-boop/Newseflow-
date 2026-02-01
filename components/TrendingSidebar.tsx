@@ -2,7 +2,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { TrendingItem } from '../types.ts';
-import { TrendingUp, Search, Globe, Loader2, Sparkles, ChevronRight } from 'lucide-react';
+import { TrendingUp, Globe, Loader2, Sparkles, ChevronRight } from 'lucide-react';
 import { Button } from './Button.tsx';
 
 interface TrendingSidebarProps {
@@ -14,19 +14,6 @@ interface TrendingSidebarProps {
 export const TrendingSidebar: React.FC<TrendingSidebarProps> = ({ trending, onSearch, isLoading = false }) => {
   return (
     <div className="w-80 hidden lg:block sticky top-24 h-fit space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-      {/* Search Hub */}
-      <div className="relative group">
-        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-          <Search className="w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-        </div>
-        <input 
-          type="text" 
-          placeholder="Scan intelligence tags..." 
-          className="w-full bg-white border border-slate-200 rounded-2xl pl-11 pr-4 py-3 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none shadow-sm transition-all placeholder:text-slate-300"
-          onChange={(e) => onSearch(e.target.value)}
-        />
-      </div>
-
       {/* Trending Intel */}
       <div className="bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden relative">
         <div className="absolute top-0 right-0 p-4">

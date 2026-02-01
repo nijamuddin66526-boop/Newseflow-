@@ -7,25 +7,16 @@ import { Navbar } from './components/Navbar.tsx';
 import { PostCard } from './components/PostCard.tsx';
 import { CreatePost } from './components/CreatePost.tsx';
 import { TrendingSidebar } from './components/TrendingSidebar.tsx';
-import { GlobalNewsSearch } from './components/GlobalNewsSearch.tsx';
 import { Guidelines } from './components/Guidelines.tsx';
 import { BottomNav } from './components/BottomNav.tsx';
 import { AuthFlow } from './components/AuthFlow.tsx';
-import { searchGlobalNews, GlobalNewsResult, fetchLiveTrendingTopics, fetchGlobalTrendingStories } from './services/geminiService.ts';
+import { fetchLiveTrendingTopics, fetchGlobalTrendingStories } from './services/geminiService.ts';
 import { 
   Home, 
-  Search, 
-  User as UserIcon, 
   Shield, 
   Loader2, 
-  Smartphone, 
-  Mail, 
-  Fingerprint, 
-  Globe,
-  Compass,
+  User as UserIcon, 
   TrendingUp,
-  Plus,
-  Zap,
   Play
 } from 'lucide-react';
 import { Button } from './components/Button.tsx';
@@ -45,16 +36,11 @@ const HomePage: React.FC<{
   onUpdateLocation: (postId: string, location: any) => void;
   activeCategory: string | null;
   setActiveCategory: (cat: string | null) => void;
-  globalSearchResults: GlobalNewsResult | null;
-  isSearchingGlobal: boolean;
-  globalSearchError: string | null;
   searchQuery: string;
-  onTriggerGlobalSearch: () => void;
-  targetLanguage: string;
-  autoTranslate: boolean;
   showCreateModal: boolean;
   setShowCreateModal: (val: boolean) => void;
   isTrendingNewsLoading: boolean;
+  onRefresh: () => void;
 }> = ({ 
   posts, 
   allPosts, 
@@ -68,16 +54,11 @@ const HomePage: React.FC<{
   onUpdateLocation,
   activeCategory, 
   setActiveCategory,
-  globalSearchResults,
-  isSearchingGlobal,
-  globalSearchError,
   searchQuery,
-  onTriggerGlobalSearch,
-  targetLanguage,
-  autoTranslate,
   showCreateModal,
   setShowCreateModal,
-  isTrendingNewsLoading
+  isTrendingNewsLoading,
+  onRefresh
 }) => {
   return (
     <div className="animate-in fade-in duration-500 pb-20 sm:pb-4">
@@ -109,20 +90,11 @@ const HomePage: React.FC<{
         </div>
       )}
 
-      {viewMode === 'HOME' && (
-        <GlobalNewsSearch 
-          results={globalSearchResults} 
-          isLoading={isSearchingGlobal} 
-          error={globalSearchError}
-          query={searchQuery}
-        />
-      )}
-
       <div className={`mx-auto ${viewMode === 'SHORTS' ? 'max-w-md' : 'max-w-screen-xl px-2'}`}>
         {isTrendingNewsLoading ? (
           <div className="py-20 text-center">
             <Loader2 className="w-10 h-10 text-blue-600 animate-spin mx-auto mb-4" />
-            <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.2em]">Querying Global Matrix...</p>
+            <p className="text-slate-400 font-black uppercase text-[10px] tracking-[0.2em]">Loading Latest Feed...</p>
           </div>
         ) : (
           <div className={viewMode === 'HOME' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-4" : "flex flex-col space-y-0"}>
@@ -137,8 +109,6 @@ const HomePage: React.FC<{
                 onSave={onSave}
                 onComment={onComment} 
                 onUpdateLocation={onUpdateLocation}
-                targetLanguage={targetLanguage}
-                autoTranslate={autoTranslate}
                 layout={viewMode === 'HOME' ? 'grid' : 'immersive'}
               />
             ))}
@@ -146,9 +116,9 @@ const HomePage: React.FC<{
         )}
         {!isTrendingNewsLoading && posts.length === 0 && (
           <div className="text-center py-24 px-8">
-            <h3 className="text-xl font-black text-slate-900 mb-2">Network Idle</h3>
-            <p className="text-slate-500 text-sm mb-8 font-medium max-w-xs mx-auto">No reports match your criteria.</p>
-            <Button size="lg" className="rounded-2xl px-8" onClick={onTriggerGlobalSearch}>Global Search</Button>
+            <h3 className="text-xl font-black text-slate-900 mb-2">No Reports Found</h3>
+            <p className="text-slate-500 text-sm mb-8 font-medium max-w-xs mx-auto">Try refreshing your feed.</p>
+            <Button size="lg" className="rounded-2xl px-8" onClick={onRefresh}>Refresh</Button>
           </div>
         )}
       </div>
@@ -160,14 +130,12 @@ const ProfilePage: React.FC<{
   user: User; 
   posts: Post[]; 
   onLike: (id: string) => void; 
-  onShare: (id: string) => void;
-  onSave: (id: string) => void;
-  onComment: (id: string, text: string) => void;
-  onUpdateLocation: (postId: string, location: any) => void;
-  onUpdateBio: (bio: string) => void;
-  targetLanguage: string;
-  autoTranslate: boolean;
-}> = ({ user, posts, onLike, onShare, onSave, onComment, onUpdateLocation, onUpdateBio, targetLanguage, autoTranslate }) => {
+  onShare: (id: string) => void; 
+  onSave: (id: string) => void; 
+  onComment: (id: string, text: string) => void; 
+  onUpdateLocation: (postId: string, location: any) => void; 
+  onUpdateBio: (bio: string) => void; 
+}> = ({ user, posts, onLike, onShare, onSave, onComment, onUpdateLocation, onUpdateBio }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [tempBio, setTempBio] = useState(user.bio);
   const userPosts = useMemo(() => posts.filter(p => p.userId === user.id), [posts, user.id]);
@@ -238,13 +206,7 @@ const AppContent: React.FC = () => {
   
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [globalSearchResults, setGlobalSearchResults] = useState<GlobalNewsResult | null>(null);
-  const [isSearchingGlobal, setIsSearchingGlobal] = useState(false);
-  const [globalSearchError, setGlobalSearchError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
-
-  const [targetLanguage, setTargetLanguage] = useState(() => localStorage.getItem('netsphere_lang') || 'en');
-  const [autoTranslate, setAutoTranslate] = useState(() => localStorage.getItem('netsphere_auto_translate') === 'true');
 
   useEffect(() => { localStorage.setItem('netsphere_posts', JSON.stringify(posts)); }, [posts]);
   useEffect(() => {
@@ -252,23 +214,21 @@ const AppContent: React.FC = () => {
     else localStorage.removeItem('netsphere_user');
   }, [currentUser]);
 
-  useEffect(() => { localStorage.setItem('netsphere_lang', targetLanguage); }, [targetLanguage]);
-  useEffect(() => { localStorage.setItem('netsphere_auto_translate', String(autoTranslate)); }, [autoTranslate]);
+  const refreshNews = async () => {
+    setIsTrendingLoading(true);
+    try {
+      const [liveTrends, liveNews] = await Promise.all([
+        fetchLiveTrendingTopics(),
+        fetchGlobalTrendingStories()
+      ]);
+      if (liveTrends.length > 0) setTrending(liveTrends);
+      if (liveNews.length > 0) setTrendingNews(liveNews);
+    } catch (err) { console.error(err); }
+    setIsTrendingLoading(false);
+  };
 
   useEffect(() => {
-    const getTrendingData = async () => {
-      setIsTrendingLoading(true);
-      try {
-        const [liveTrends, liveNews] = await Promise.all([
-          fetchLiveTrendingTopics(),
-          fetchGlobalTrendingStories()
-        ]);
-        if (liveTrends.length > 0) setTrending(liveTrends);
-        if (liveNews.length > 0) setTrendingNews(liveNews);
-      } catch (err) { console.error(err); }
-      setIsTrendingLoading(false);
-    };
-    getTrendingData();
+    refreshNews();
   }, []);
 
   useEffect(() => {
@@ -296,19 +256,6 @@ const AppContent: React.FC = () => {
     }
     return result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [posts, trendingNews, searchQuery, activeCategory, viewMode]);
-
-  const handleGlobalSearch = async () => {
-    if (!searchQuery.trim()) return;
-    setIsSearchingGlobal(true);
-    setGlobalSearchError(null);
-    try {
-      const results = await searchGlobalNews(searchQuery);
-      setGlobalSearchResults(results);
-      if (location.pathname !== '/') navigate('/');
-      setViewMode('HOME');
-    } catch (err) { setGlobalSearchError("Search failure."); }
-    finally { setIsSearchingGlobal(false); }
-  };
 
   const handleCreatePost = (data: any) => {
     if (!currentUser) return;
@@ -370,11 +317,6 @@ const AppContent: React.FC = () => {
         user={currentUser} 
         onLogout={handleLogout} 
         onSearch={setSearchQuery} 
-        onSearchSubmit={handleGlobalSearch}
-        currentLanguage={targetLanguage}
-        onLanguageChange={setTargetLanguage}
-        autoTranslate={autoTranslate}
-        onAutoTranslateChange={setAutoTranslate}
       />
       
       <main className="max-w-screen-xl mx-auto flex flex-col lg:flex-row">
@@ -395,8 +337,8 @@ const AppContent: React.FC = () => {
 
         <div className="flex-1 min-w-0">
           <Routes>
-            <Route path="/" element={<HomePage posts={filteredPosts} allPosts={posts} currentUser={currentUser} viewMode={viewMode} onLike={handleLike} onShare={handleShare} onSave={handleSave} onComment={handleComment} onPostCreated={handleCreatePost} onUpdateLocation={() => {}} activeCategory={activeCategory} setActiveCategory={setActiveCategory} globalSearchResults={globalSearchResults} isSearchingGlobal={isSearchingGlobal} globalSearchError={globalSearchError} searchQuery={searchQuery} onTriggerGlobalSearch={handleGlobalSearch} targetLanguage={targetLanguage} autoTranslate={autoTranslate} showCreateModal={showCreateModal} setShowCreateModal={setShowCreateModal} isTrendingNewsLoading={isTrendingNewsLoading} />} />
-            <Route path="/profile" element={<ProfilePage user={currentUser} posts={posts} onLike={handleLike} onShare={handleShare} onSave={handleSave} onComment={handleComment} onUpdateLocation={() => {}} onUpdateBio={handleUpdateBio} targetLanguage={targetLanguage} autoTranslate={autoTranslate} />} />
+            <Route path="/" element={<HomePage posts={filteredPosts} allPosts={posts} currentUser={currentUser} viewMode={viewMode} onLike={handleLike} onShare={handleShare} onSave={handleSave} onComment={handleComment} onPostCreated={handleCreatePost} onUpdateLocation={() => {}} activeCategory={activeCategory} setActiveCategory={setActiveCategory} searchQuery={searchQuery} showCreateModal={showCreateModal} setShowCreateModal={setShowCreateModal} isTrendingNewsLoading={isTrendingNewsLoading} onRefresh={refreshNews} />} />
+            <Route path="/profile" element={<ProfilePage user={currentUser} posts={posts} onLike={handleLike} onShare={handleShare} onSave={handleSave} onComment={handleComment} onUpdateLocation={() => {}} onUpdateBio={handleUpdateBio} />} />
             <Route path="/guidelines" element={<Guidelines />} />
           </Routes>
         </div>

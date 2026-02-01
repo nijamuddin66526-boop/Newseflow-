@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ExternalLink, Globe, Loader2, AlertCircle } from 'lucide-react';
+import { Globe, Loader2, AlertCircle, ExternalLink } from 'lucide-react';
 import { GlobalNewsResult } from '../services/geminiService.ts';
 
 interface GlobalNewsSearchProps {
@@ -18,7 +18,7 @@ export const GlobalNewsSearch: React.FC<GlobalNewsSearchProps> = ({ results, isL
       <div className="bg-blue-600 px-6 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-2 text-white">
           <Globe className="w-4 h-4" />
-          <h2 className="text-xs font-black uppercase tracking-widest">Live Global Intelligence: {query}</h2>
+          <h2 className="text-xs font-black uppercase tracking-widest">Search: {query}</h2>
         </div>
         {isLoading && <Loader2 className="w-4 h-4 text-blue-200 animate-spin" />}
       </div>
@@ -27,7 +27,7 @@ export const GlobalNewsSearch: React.FC<GlobalNewsSearchProps> = ({ results, isL
         {isLoading ? (
           <div className="flex flex-col items-center py-8 space-y-4">
             <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-            <p className="text-slate-500 text-sm font-bold italic animate-pulse">Querying global satellite networks & news feeds...</p>
+            <p className="text-slate-500 text-sm font-bold animate-pulse">Scanning world news feeds...</p>
           </div>
         ) : error ? (
           <div className="flex items-center space-x-3 text-red-500 p-4 bg-red-50 rounded-xl">
@@ -44,7 +44,7 @@ export const GlobalNewsSearch: React.FC<GlobalNewsSearchProps> = ({ results, isL
 
             {results.sources.length > 0 && (
               <div className="pt-4 border-t border-slate-100">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Verified Sources</h3>
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Sources</h3>
                 <div className="flex flex-wrap gap-2">
                   {results.sources.map((source, idx) => (
                     <a 

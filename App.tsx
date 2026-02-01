@@ -1,6 +1,30 @@
 
-import React, { useState, useEffect } from 'react';
-import { Globe, ExternalLink, Loader2, Newspaper } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  Globe, 
+  ExternalLink, 
+  Loader2, 
+  Newspaper, 
+  MapPin, 
+  Search, 
+  AlertTriangle, 
+  Send, 
+  PlusCircle,
+  TrendingUp,
+  LayoutGrid
+} from 'lucide-react';
+
+// Interfaces
+interface LocalPost {
+  id: string;
+  author: string;
+  authorAvatar: string;
+  title: string;
+  content: string;
+  location: string;
+  isBreaking: boolean;
+  timestamp: string;
+}
 
 interface Article {
   title: string;
@@ -11,149 +35,319 @@ interface Article {
   publishedAt: string;
 }
 
-const App: React.FC = () => {
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+type TabType = 'LOCAL' | 'WORLD' | 'CHILL';
 
-  useEffect(() => {
-    const fetchNews = async () => {
-      try {
-        const response = await fetch('https://saurav.tech/NewsAPI/top-headlines/category/general/us.json');
-        const data = await response.json();
-        if (data.status === 'ok') {
-          setArticles(data.articles);
-        }
-      } catch (error) {
-        console.error('Error fetching news:', error);
-      } finally {
-        setLoading(false);
+const App: React.FC = () => {
+  // State
+  const [activeTab, setActiveTab] = useState<TabType>('LOCAL');
+  const [localPosts, setLocalPosts] = useState<LocalPost[]>(() => {
+    const saved = localStorage.getItem('netsphere_local_posts');
+    return saved ? JSON.parse(saved) : [
+      {
+        id: '1',
+        author: 'Arif Ahmed',
+        authorAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Arif',
+        title: 'Water logging issue in Mirpur 10',
+        content: 'Heavy rain since morning has caused severe water logging in Mirpur 10 area. Commuters are facing extreme difficulties.',
+        location: 'Mirpur, Dhaka',
+        isBreaking: true,
+        timestamp: new Date().toISOString()
+      },
+      {
+        id: '2',
+        author: 'Sumana Roy',
+        authorAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sumana',
+        title: 'New Community Library Opening',
+        content: 'A new library is opening next week for local students. Everyone is invited to the inauguration.',
+        location: 'Salt Lake, Kolkata',
+        isBreaking: false,
+        timestamp: new Date(Date.now() - 86400000).toISOString()
       }
+    ];
+  });
+  
+  const [worldNews, setWorldNews] = useState<Article[]>([]);
+  const [loadingWorld, setLoadingWorld] = useState(false);
+  const [searchArea, setSearchArea] = useState('');
+  
+  // New Post Form State
+  const [showForm, setShowForm] = useState(false);
+  const [newPost, setNewPost] = useState({
+    title: '',
+    content: '',
+    location: '',
+    isBreaking: false
+  });
+
+  // Save to LocalStorage
+  useEffect(() => {
+    localStorage.setItem('netsphere_local_posts', JSON.stringify(localPosts));
+  }, [localPosts]);
+
+  // Fetch World News
+  useEffect(() => {
+    if (activeTab === 'WORLD' && worldNews.length === 0) {
+      const fetchNews = async () => {
+        setLoadingWorld(true);
+        try {
+          const res = await fetch('https://saurav.tech/NewsAPI/top-headlines/category/general/us.json');
+          const data = await res.json();
+          if (data.status === 'ok') setWorldNews(data.articles);
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setLoadingWorld(false);
+        }
+      };
+      fetchNews();
+    }
+  }, [activeTab]);
+
+  // Handle Post Creation
+  const handlePostSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPost.title || !newPost.location || !newPost.content) {
+      alert("Please fill all fields (Title, Content, and Location)");
+      return;
+    }
+
+    const post: LocalPost = {
+      id: Date.now().toString(),
+      author: 'Citizen Reporter',
+      authorAvatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${Date.now()}`,
+      title: newPost.title,
+      content: newPost.content,
+      location: newPost.location,
+      isBreaking: newPost.isBreaking,
+      timestamp: new Date().toISOString()
     };
 
-    fetchNews();
-  }, []);
+    setLocalPosts([post, ...localPosts]);
+    setNewPost({ title: '', content: '', location: '', isBreaking: false });
+    setShowForm(false);
+  };
+
+  // Filter local posts by area
+  const filteredLocalPosts = useMemo(() => {
+    return localPosts.filter(p => 
+      p.location.toLowerCase().includes(searchArea.toLowerCase()) ||
+      p.title.toLowerCase().includes(searchArea.toLowerCase())
+    );
+  }, [localPosts, searchArea]);
 
   return (
     <div className="min-h-screen bg-slate-50 font-['Inter']">
       {/* Navbar */}
       <nav className="bg-[#1877F2] text-white shadow-xl sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="bg-white/20 p-2 rounded-xl backdrop-blur-sm border border-white/30">
-              <Newspaper className="w-8 h-8" />
-            </div>
-            <h1 className="text-2xl font-black tracking-tighter">NetSphere News 🌎</h1>
+        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Newspaper className="w-6 h-6" />
+            <h1 className="text-xl font-black tracking-tighter">NetSphere Citizen News 🌎</h1>
           </div>
-          <div className="hidden sm:flex items-center space-x-6">
-            <div className="flex items-center space-x-2 bg-black/10 px-4 py-2 rounded-full border border-white/10">
-              <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-              <span className="text-xs font-black uppercase tracking-widest">Live Feed</span>
-            </div>
-          </div>
+          <button 
+            onClick={() => setShowForm(!showForm)}
+            className="bg-white text-[#1877F2] px-4 py-2 rounded-full font-black text-xs uppercase flex items-center shadow-lg hover:scale-105 transition-transform"
+          >
+            <PlusCircle className="w-4 h-4 mr-2" /> Report News
+          </button>
         </div>
       </nav>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-12">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-40 space-y-6">
-            <div className="relative">
-              <Loader2 className="w-16 h-16 text-[#1877F2] animate-spin" />
-              <Globe className="w-8 h-8 text-[#1877F2] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+      {/* Hero Tabs */}
+      <div className="bg-white border-b border-slate-200 sticky top-16 z-40">
+        <div className="max-w-5xl mx-auto px-6 flex items-center space-x-8 h-14 overflow-x-auto no-scrollbar">
+          <button 
+            onClick={() => setActiveTab('LOCAL')}
+            className={`flex items-center space-x-2 text-sm font-black uppercase tracking-widest whitespace-nowrap border-b-4 transition-all h-full ${activeTab === 'LOCAL' ? 'border-[#1877F2] text-[#1877F2]' : 'border-transparent text-slate-400'}`}
+          >
+            <LayoutGrid className="w-4 h-4" /> <span>Local Reports</span>
+          </button>
+          <button 
+            onClick={() => setActiveTab('WORLD')}
+            className={`flex items-center space-x-2 text-sm font-black uppercase tracking-widest whitespace-nowrap border-b-4 transition-all h-full ${activeTab === 'WORLD' ? 'border-[#1877F2] text-[#1877F2]' : 'border-transparent text-slate-400'}`}
+          >
+            <Globe className="w-4 h-4" /> <span>World News</span>
+          </button>
+          <button 
+            onClick={() => setActiveTab('CHILL')}
+            className={`flex items-center space-x-2 text-sm font-black uppercase tracking-widest whitespace-nowrap border-b-4 transition-all h-full ${activeTab === 'CHILL' ? 'border-[#1877F2] text-[#1877F2]' : 'border-transparent text-slate-400'}`}
+          >
+            <TrendingUp className="w-4 h-4" /> <span>Chill Zone</span>
+          </button>
+        </div>
+      </div>
+
+      <main className="max-w-3xl mx-auto px-6 py-8">
+        {/* Post Form Overlay */}
+        {showForm && (
+          <div className="mb-10 bg-white rounded-3xl p-8 border-2 border-blue-500 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-black text-slate-800 tracking-tight">Citizen Report Filing</h2>
+              <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-red-500">✕</button>
             </div>
-            <p className="text-xl font-black text-slate-800 animate-pulse tracking-tight italic">
-              Loading latest headlines...
-            </p>
-          </div>
-        ) : (
-          <>
-            <div className="mb-10 flex items-end justify-between">
-              <div>
-                <h2 className="text-4xl font-black text-slate-900 tracking-tighter mb-2 italic underline decoration-[#1877F2] decoration-8 underline-offset-8">
-                  Top Stories
-                </h2>
-                <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.3em]">
-                  Real-time Global Intel Dispatch
-                </p>
+            <form onSubmit={handlePostSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input 
+                  type="text" 
+                  placeholder="Headline of the news..." 
+                  className="w-full bg-slate-100 border-2 border-transparent focus:border-blue-500 rounded-2xl px-4 py-3 outline-none font-bold text-sm"
+                  value={newPost.title}
+                  onChange={e => setNewPost({...newPost, title: e.target.value})}
+                />
+                <input 
+                  type="text" 
+                  placeholder="📍 Location / Area (e.g. Mirpur, Dhaka)" 
+                  className="w-full bg-slate-100 border-2 border-transparent focus:border-blue-500 rounded-2xl px-4 py-3 outline-none font-bold text-sm"
+                  value={newPost.location}
+                  onChange={e => setNewPost({...newPost, location: e.target.value})}
+                />
               </div>
-              <p className="text-slate-400 text-xs font-bold hidden md:block">
-                Showing {articles.length} verified reports
-              </p>
+              <textarea 
+                placeholder="Describe the incident in detail..."
+                className="w-full bg-slate-100 border-2 border-transparent focus:border-blue-500 rounded-2xl px-4 py-3 outline-none font-medium text-sm h-32 resize-none"
+                value={newPost.content}
+                onChange={e => setNewPost({...newPost, content: e.target.value})}
+              />
+              <div className="flex items-center justify-between pt-2">
+                <label className="flex items-center space-x-3 cursor-pointer group">
+                  <input 
+                    type="checkbox" 
+                    className="w-5 h-5 accent-red-600 rounded"
+                    checked={newPost.isBreaking}
+                    onChange={e => setNewPost({...newPost, isBreaking: e.target.checked})}
+                  />
+                  <span className="text-xs font-black uppercase text-red-600 tracking-widest group-hover:underline">Mark as Breaking News 🚨</span>
+                </label>
+                <button type="submit" className="bg-[#1877F2] text-white px-8 py-3 rounded-2xl font-black text-sm uppercase shadow-lg flex items-center">
+                  Dispatch Report <Send className="w-4 h-4 ml-2" />
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Local Feed Content */}
+        {activeTab === 'LOCAL' && (
+          <div className="space-y-6">
+            <div className="relative group">
+              <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5 group-focus-within:text-blue-500 transition-colors" />
+              <input 
+                type="text"
+                placeholder="Search news by area (e.g. Dhaka, Gulshan)..."
+                className="w-full h-14 bg-white border border-slate-200 rounded-2xl pl-14 pr-6 outline-none focus:ring-4 focus:ring-blue-50 shadow-sm font-bold text-sm transition-all"
+                value={searchArea}
+                onChange={e => setSearchArea(e.target.value)}
+              />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {articles.map((article, idx) => (
+            {filteredLocalPosts.length === 0 ? (
+              <div className="text-center py-20">
+                <p className="text-slate-400 font-bold">No reports found for "{searchArea}"</p>
+              </div>
+            ) : (
+              filteredLocalPosts.map(post => (
                 <div 
-                  key={idx} 
-                  className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden flex flex-col hover:shadow-2xl hover:border-blue-100 transition-all duration-500 group"
+                  key={post.id} 
+                  className={`bg-white rounded-[2rem] p-8 shadow-sm border-2 transition-all hover:shadow-xl ${post.isBreaking ? 'border-red-100' : 'border-slate-100 hover:border-blue-100'}`}
                 >
-                  {/* Image Holder */}
-                  <div className="h-56 relative overflow-hidden bg-slate-100">
-                    <img 
-                      src={article.urlToImage || 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&q=80&w=800'} 
-                      alt={article.title}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                      onError={(e) => {
-                        e.currentTarget.src = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&q=80&w=800';
-                      }}
-                    />
-                    <div className="absolute top-4 left-4">
-                      <span className="bg-[#1877F2] text-white text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-lg">
-                        {article.source.name}
-                      </span>
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center space-x-3">
+                      <img src={post.authorAvatar} className="w-10 h-10 rounded-full border border-slate-100 bg-slate-50" />
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <h4 className="text-sm font-black text-slate-900">{post.author}</h4>
+                          <span className="bg-blue-50 text-blue-600 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border border-blue-100">
+                            Citizen Reporter
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                          {new Date(post.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • Just now
+                        </p>
+                      </div>
+                    </div>
+                    <div className="bg-slate-50 text-[#1877F2] px-4 py-2 rounded-xl flex items-center text-xs font-black border border-slate-100">
+                      <MapPin className="w-3 h-3 mr-1.5" /> {post.location}
                     </div>
                   </div>
 
-                  {/* Text Content */}
-                  <div className="p-8 flex-1 flex flex-col">
-                    <div className="flex items-center space-x-2 text-slate-400 text-[10px] font-black uppercase tracking-widest mb-4">
-                      <span>{new Date(article.publishedAt).toDateString()}</span>
-                      <span className="w-1 h-1 bg-slate-300 rounded-full" />
-                      <span>{new Date(article.publishedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  {post.isBreaking && (
+                    <div className="inline-flex items-center space-x-2 bg-red-600 text-white px-4 py-1.5 rounded-full mb-4 animate-pulse">
+                      <AlertTriangle className="w-3 h-3" />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Breaking Local News</span>
                     </div>
-                    
-                    <h3 className="text-xl font-black text-slate-900 mb-4 leading-[1.2] group-hover:text-[#1877F2] transition-colors line-clamp-2">
-                      {article.title}
-                    </h3>
-                    
-                    <p className="text-sm text-slate-500 mb-8 line-clamp-3 font-medium leading-relaxed">
-                      {article.description || "The specific details for this report are being processed. Click the Read More button below to access the full primary source coverage."}
-                    </p>
-                    
-                    <div className="mt-auto pt-4 border-t border-slate-50">
-                      <a 
-                        href={article.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center w-full bg-slate-50 text-[#1877F2] border-2 border-slate-200 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-[#1877F2] hover:text-white hover:border-[#1877F2] transition-all duration-300 shadow-sm"
-                      >
-                        Read Full Dispatch
-                        <ExternalLink className="w-4 h-4 ml-2" />
-                      </a>
+                  )}
+
+                  <h3 className="text-2xl font-black text-slate-900 mb-4 leading-tight">
+                    {post.title}
+                  </h3>
+                  <p className="text-slate-600 font-medium leading-relaxed mb-6">
+                    {post.content}
+                  </p>
+
+                  <div className="flex items-center justify-between pt-6 border-t border-slate-50">
+                    <div className="flex items-center space-x-4">
+                      <button className="text-slate-400 hover:text-blue-500 text-xs font-bold uppercase tracking-widest">Upvote</button>
+                      <button className="text-slate-400 hover:text-blue-500 text-xs font-bold uppercase tracking-widest">Verify</button>
                     </div>
+                    <button className="text-slate-300 hover:text-[#1877F2]"><ExternalLink className="w-4 h-4" /></button>
                   </div>
                 </div>
-              ))}
-            </div>
-          </>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* World News Tab */}
+        {activeTab === 'WORLD' && (
+          <div className="space-y-8 animate-in fade-in duration-500">
+            {loadingWorld ? (
+              <div className="py-20 flex flex-col items-center">
+                <Loader2 className="w-10 h-10 text-blue-500 animate-spin mb-4" />
+                <p className="text-slate-400 font-bold">Syncing global feeds...</p>
+              </div>
+            ) : (
+              worldNews.map((article, idx) => (
+                <div key={idx} className="bg-white rounded-3xl overflow-hidden shadow-sm border border-slate-200 group hover:shadow-xl transition-all">
+                  <div className="h-64 overflow-hidden relative">
+                    <img 
+                      src={article.urlToImage || 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&q=80&w=800'} 
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute top-4 left-4 bg-[#1877F2] text-white text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest">
+                      {article.source.name}
+                    </div>
+                  </div>
+                  <div className="p-8">
+                    <h3 className="text-xl font-black mb-4 leading-tight group-hover:text-blue-600 transition-colors">{article.title}</h3>
+                    <p className="text-slate-500 text-sm mb-6 line-clamp-3 font-medium">{article.description}</p>
+                    <a 
+                      href={article.url} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center text-[#1877F2] font-black text-xs uppercase tracking-[0.2em] hover:underline"
+                    >
+                      Read Source Report <ExternalLink className="w-3 h-3 ml-2" />
+                    </a>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* Chill Zone / Trending Placeholder */}
+        {activeTab === 'CHILL' && (
+          <div className="py-20 text-center">
+            <TrendingUp className="w-16 h-16 text-slate-200 mx-auto mb-6" />
+            <h2 className="text-2xl font-black text-slate-800 italic tracking-tighter mb-2">Social Hub Coming Soon</h2>
+            <p className="text-slate-400 font-medium">Join the discussion about the latest trends with other reporters.</p>
+          </div>
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-slate-200 mt-20">
-        <div className="max-w-7xl mx-auto px-6 py-12 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center space-x-2">
-            <Newspaper className="w-6 h-6 text-[#1877F2]" />
-            <span className="text-lg font-black tracking-tighter text-slate-900">NetSphere News</span>
-          </div>
-          <div className="text-center md:text-right">
-            <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">
-              Data Stream: saurav.tech/NewsAPI • Interface v2.5.0
-            </p>
-            <p className="text-slate-300 text-[9px] font-bold mt-1">
-              © 2025 NETSPHERE DISPATCH NETWORK. ALL RIGHTS RESERVED.
-            </p>
-          </div>
+      <footer className="bg-white border-t border-slate-200 mt-20 py-12">
+        <div className="max-w-5xl mx-auto px-6 text-center">
+          <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em]">
+            NetSphere Network • Decentralized Citizen Journalism • v3.0.1
+          </p>
         </div>
       </footer>
     </div>

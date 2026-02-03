@@ -10,31 +10,36 @@ export interface GlobalNewsResult {
 const RSS_API_BASE = "https://api.rss2json.com/v1/api.json?rss_url=";
 
 const BENGALI_SOURCES = [
-  { name: "Aaj Tak Bangla", url: "https://bengali.aajtak.in/rss/news" },
-  { name: "Anandabazar", url: "https://www.anandabazar.com/rss-feed.xml" },
-  { name: "News18 Bangla", url: "https://bengali.news18.com/rss/khabar.xml" },
-  { name: "Zee 24 Ghanta", url: "https://zeenews.india.com/bengali/rss.xml" }
+  { name: "Aaj Tak Bangla", url: "https://bengali.aajtak.in/rss/news", color: "bg-red-600" },
+  { name: "Anandabazar", url: "https://www.anandabazar.com/rss-feed.xml", color: "bg-yellow-600" },
+  { name: "News18 Bangla", url: "https://bengali.news18.com/rss/khabar.xml", color: "bg-blue-800" },
+  { name: "Zee 24 Ghanta", url: "https://zeenews.india.com/bengali/rss.xml", color: "bg-orange-600" }
 ];
 
 const stripHtml = (html: string) => {
+  if (!html) return "";
   const doc = new DOMParser().parseFromString(html, 'text/html');
-  return doc.body.textContent || "";
+  return (doc.body.textContent || "").trim();
 };
 
 export const fetchBengaliMultiSourceNews = async (): Promise<any[]> => {
   const fetchPromises = BENGALI_SOURCES.map(async (source) => {
     try {
-      const response = await fetch(`${RSS_API_BASE}${encodeURIComponent(source.url)}`);
+      // Use a timestamp to prevent caching issues
+      const timestamp = new Date().getTime();
+      const response = await fetch(`${RSS_API_BASE}${encodeURIComponent(source.url)}&_t=${timestamp}`);
       const data = await response.json();
+      
       if (data.status === 'ok') {
         return data.items.map((item: any) => ({
           title: item.title,
-          description: stripHtml(item.description),
+          description: stripHtml(item.description || item.content),
           urlToImage: item.enclosure?.link || item.thumbnail || `https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=800&auto=format&fit=crop`,
           url: item.link,
-          source: { name: source.name },
+          source: { name: source.name, color: source.color },
           publishedAt: item.pubDate,
-          category: item.categories && item.categories.length > 0 ? item.categories[0] : "General"
+          // Extract category if available, otherwise default to "General"
+          category: (item.categories && item.categories.length > 0) ? item.categories[0] : "General"
         }));
       }
       return [];

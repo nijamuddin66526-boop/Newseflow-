@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  initializeApplication, 
   getAuth, 
   signInWithPopup, 
   GoogleAuthProvider, 
@@ -10,9 +9,7 @@ import {
   signInWithPhoneNumber,
   RecaptchaVerifier
 } from 'firebase/auth';
-import { 
-  initializeApp 
-} from 'firebase/app';
+import { initializeApp } from 'firebase/app';
 import { 
   getFirestore, 
   collection, 
@@ -28,17 +25,14 @@ import {
   MapPin, 
   Send, 
   PlusCircle,
-  TrendingUp,
   LayoutGrid,
   LogOut,
-  User as UserIcon,
-  Phone,
-  Search,
   ExternalLink,
   Loader2,
-  Camera,
-  Coffee
+  Coffee,
+  Filter
 } from 'lucide-react';
+import { fetchBengaliMultiSourceNews } from './services/geminiService.ts';
 
 // Firebase Configuration
 const firebaseConfig = {
@@ -74,6 +68,7 @@ interface Article {
   url: string;
   source: { name: string };
   publishedAt: string;
+  category: string;
 }
 
 type TabType = 'CITIZEN' | 'WORLD' | 'CHILL';
@@ -84,6 +79,7 @@ const App: React.FC = () => {
   const [citizenPosts, setCitizenPosts] = useState<CitizenPost[]>([]);
   const [worldNews, setWorldNews] = useState<Article[]>([]);
   const [loadingWorld, setLoadingWorld] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState('All');
   
   // Auth Form State
   const [phone, setPhone] = useState('');
@@ -94,6 +90,9 @@ const App: React.FC = () => {
   // New Post Form State
   const [showForm, setShowForm] = useState(false);
   const [newPost, setNewPost] = useState({ title: '', content: '', location: '' });
+
+  // Filter Categories
+  const categories = ['All', 'Politics', 'Sports', 'Entertainment', 'International'];
 
   // Auth Listener
   useEffect(() => {
@@ -118,15 +117,14 @@ const App: React.FC = () => {
     }
   }, [user, activeTab]);
 
-  // World News Fetch
+  // World News Fetch (Multi-Source RSS)
   useEffect(() => {
     if (user && activeTab === 'WORLD' && worldNews.length === 0) {
       const fetchNews = async () => {
         setLoadingWorld(true);
         try {
-          const res = await fetch('https://saurav.tech/NewsAPI/top-headlines/category/general/us.json');
-          const data = await res.json();
-          if (data.status === 'ok') setWorldNews(data.articles);
+          const news = await fetchBengaliMultiSourceNews();
+          setWorldNews(news);
         } catch (err) {
           console.error(err);
         } finally {
@@ -136,6 +134,15 @@ const App: React.FC = () => {
       fetchNews();
     }
   }, [user, activeTab, worldNews.length]);
+
+  // Derived Filtered News
+  const filteredWorldNews = useMemo(() => {
+    if (categoryFilter === 'All') return worldNews;
+    return worldNews.filter(article => 
+      article.category?.toLowerCase().includes(categoryFilter.toLowerCase()) ||
+      article.title?.toLowerCase().includes(categoryFilter.toLowerCase())
+    );
+  }, [worldNews, categoryFilter]);
 
   // Auth Actions
   const handleGoogleLogin = async () => {
@@ -178,7 +185,6 @@ const App: React.FC = () => {
 
   const handleLogout = () => signOut(auth);
 
-  // Citizen Feed Actions
   const handlePostSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPost.title || !newPost.location || !newPost.content) return;
@@ -311,7 +317,24 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      <main className="max-w-3xl mx-auto px-6 py-10 pb-24">
+      <main className="max-w-4xl mx-auto px-6 py-10 pb-24">
+        {activeTab === 'WORLD' && (
+          <div className="mb-8">
+            <div className="flex items-center space-x-3 mb-6 overflow-x-auto pb-2 no-scrollbar">
+              <Filter className="w-4 h-4 text-slate-400 flex-shrink-0" />
+              {categories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setCategoryFilter(cat)}
+                  className={`px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${categoryFilter === cat ? 'bg-[#1877F2] text-white shadow-md' : 'bg-white text-slate-400 border border-slate-200 hover:border-blue-300'}`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* View Content */}
         {activeTab === 'CITIZEN' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -413,36 +436,51 @@ const App: React.FC = () => {
         )}
 
         {activeTab === 'WORLD' && (
-          <div className="grid grid-cols-1 gap-8 animate-in fade-in duration-500">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in duration-500">
             {loadingWorld ? (
               <div className="py-20 flex flex-col items-center col-span-full">
                 <Loader2 className="w-12 h-12 text-blue-500 animate-spin mb-4" />
-                <p className="text-slate-400 font-bold">Connecting to global satellites...</p>
+                <p className="text-slate-400 font-black uppercase tracking-[0.2em]">Syncing Bengali News Hub...</p>
               </div>
             ) : (
-              worldNews.map((article, idx) => (
-                <div key={idx} className="bg-white rounded-[2.5rem] overflow-hidden shadow-sm border border-slate-200 group hover:shadow-xl transition-all">
-                  <div className="h-64 overflow-hidden relative">
+              filteredWorldNews.map((article, idx) => (
+                <div key={idx} className="bg-white rounded-[2rem] overflow-hidden shadow-sm border border-slate-200 group hover:shadow-xl transition-all h-full flex flex-col">
+                  <div className="h-48 overflow-hidden relative flex-shrink-0">
                     <img 
-                      src={article.urlToImage || 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&q=80&w=800'} 
+                      src={article.urlToImage} 
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                     />
-                    <div className="absolute top-6 left-6 bg-[#1877F2] text-white text-[10px] font-black px-4 py-2 rounded-full uppercase tracking-[0.2em] shadow-lg">
+                    <div className="absolute top-4 left-4 bg-[#1877F2] text-white text-[9px] font-black px-4 py-2 rounded-full uppercase tracking-[0.2em] shadow-lg">
                       {article.source.name}
                     </div>
+                    {article.category && (
+                      <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm text-slate-900 text-[9px] font-black px-4 py-2 rounded-full uppercase tracking-[0.2em] shadow-lg border border-white/20">
+                        {article.category}
+                      </div>
+                    )}
                   </div>
-                  <div className="p-8 sm:p-10">
-                    <h3 className="text-2xl font-black mb-4 leading-tight group-hover:text-blue-600 transition-colors tracking-tight">{article.title}</h3>
-                    <p className="text-slate-500 text-sm mb-8 line-clamp-3 font-medium leading-relaxed">{article.description}</p>
-                    <a 
-                      href={article.url} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center bg-slate-900 text-white px-8 py-3.5 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg"
-                    >
-                      Read Intelligence Report <ExternalLink className="w-4 h-4 ml-3" />
-                    </a>
+                  <div className="p-6 flex flex-col flex-1">
+                    <h3 className="text-lg font-black mb-3 leading-tight group-hover:text-blue-600 transition-colors tracking-tight line-clamp-2">{article.title}</h3>
+                    <p className="text-slate-500 text-xs mb-6 line-clamp-3 font-medium leading-relaxed flex-1">{article.description}</p>
+                    <div className="flex items-center justify-between mt-auto">
+                      <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">
+                        {new Date(article.publishedAt).toLocaleDateString()}
+                      </p>
+                      <a 
+                        href={article.url} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center text-[#1877F2] font-black text-[10px] uppercase tracking-widest hover:underline"
+                      >
+                        Read More <ExternalLink className="w-3 h-3 ml-2" />
+                      </a>
+                    </div>
                   </div>
                 </div>
               ))
+            )}
+            {!loadingWorld && filteredWorldNews.length === 0 && (
+              <div className="col-span-full text-center py-20">
+                <p className="text-slate-400 font-bold uppercase tracking-widest">No reports found in this category.</p>
+              </div>
             )}
           </div>
         )}
